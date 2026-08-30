@@ -110,8 +110,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js">
-  </script>
   <script>
     (function() {
       const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
@@ -126,7 +124,6 @@
 
       let tonConnectUI = null;
       let userAddress = null;
-      let initAttempts = 0;
 
       function showError(text) {
         errorBox.textContent = '❌ ' + text;
@@ -139,25 +136,35 @@
         errorBox.classList.remove('show');
       }
 
-      // ====== ИНИЦИАЛИЗАЦИЯ С ПОВТОРАМИ ======
-      function init() {
+      // ====== ЗАГРУЗКА БИБЛИОТЕКИ ======
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      // ====== ИНИЦИАЛИЗАЦИЯ ======
+      async function init() {
         try {
-          initAttempts++;
+          status.innerText = '⏳ Загрузка TON Connect...';
+
+          // Загружаем библиотеку вручную
+          await loadScript('https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js');
 
           if (typeof TONConnectUI === 'undefined') {
-            if (initAttempts < 20) {
-              status.innerText = '⏳ Загрузка TON Connect... (' + initAttempts + ')';
-              setTimeout(init, 500);
-            } else {
-              showError('TON Connect UI не загрузился. Проверь интернет.');
-            }
+            showError('Библиотека не загрузилась');
             return;
           }
 
           status.innerText = '🟢 Инициализация...';
 
+          // Создаём UI с прямым указанием манифеста
           tonConnectUI = new TONConnectUI({
-            manifestUrl: window.location.origin + '/manifest.json'
+            manifestUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/packages/sdk/demo/public/tonconnect-manifest.json'
           });
 
           if (!tonConnectUI) {
@@ -220,13 +227,13 @@
         }
       }
 
-      // ====== ПОДКЛЮЧИТЬ С ПРОВЕРКОЙ ======
+      // ====== ПОДКЛЮЧИТЬ ======
       connectBtn.onclick = async () => {
         try {
           hideError();
 
           if (!tonConnectUI) {
-            showError('TON Connect не инициализирован. Подожди...');
+            showError('Подожди, инициализация...');
             return;
           }
 
@@ -312,7 +319,7 @@
           if (tonConnectUI) {
             tonConnectUI.connect();
           } else {
-            showError('TON Connect не инициализирован');
+            showError('Подожди, инициализация...');
           }
         } catch (e) {
           showError('Open: ' + e.message);
