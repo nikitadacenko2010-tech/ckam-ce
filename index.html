@@ -67,6 +67,10 @@
         .green {
             border-color: #00ff88;
         }
+        .warning {
+            border-color: #ff6600;
+            background: #1a0a00;
+        }
     </style>
 </head>
 <body>
@@ -92,42 +96,67 @@
         const walletDisplay = document.getElementById('walletAddress');
         const balanceDisplay = document.getElementById('balanceDisplay');
 
-        // ========== ПРОВЕРКА НА МОБИЛЬНОМ ==========
+        // ========== ПРОВЕРКА ==========
         function isMobile() {
             return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         }
 
-        // ========== ПОДКЛЮЧЕНИЕ КОШЕЛЬКА ==========
+        function isTelegram() {
+            return window.Telegram && window.Telegram.WebApp;
+        }
+
+        // ========== ПОДКЛЮЧЕНИЕ ==========
         connectBtn.onclick = async function() {
             try {
                 status.innerText = '⏳ Подключение...';
                 connectBtn.disabled = true;
 
-                // ====== ДЛЯ ТЕЛЕФОНА: открываем через TON Connect ======
-                if (isMobile()) {
-                    status.innerText = '📱 Открываю TON Keeper...';
+                // ====== ЕСЛИ В TELEGRAM MINI APP ======
+                if (isTelegram()) {
+                    status.innerText = '📱 Подключаю через Telegram...';
                     
-                    // Ссылка для мобильного TON Keeper
-                    const mobileUrl = 'https://app.tonkeeper.com/connect?return=';
-                    const siteUrl = encodeURIComponent(window.location.href);
+                    // Запрашиваем доступ через Telegram WebApp
+                    const tg = window.Telegram.WebApp;
                     
-                    // Открываем через Telegram Mini App
-                    if (window.Telegram && window.Telegram.WebApp) {
-                        window.Telegram.WebApp.openLink(mobileUrl + siteUrl);
-                    } else {
-                        // Обычное открытие
-                        window.location.href = mobileUrl + siteUrl;
-                    }
+                    // Открываем TON Connect через Telegram
+                    const connectUrl = `https://app.tonkeeper.com/ton-connect?return=${encodeURIComponent(window.location.href)}`;
+                    tg.openLink(connectUrl);
                     
-                    status.innerText = '📲 Откройте TON Keeper и подтвердите подключение';
+                    status.innerText = '📲 Подтвердите подключение в TON Keeper';
                     connectBtn.disabled = false;
                     return;
                 }
 
-                // ====== ДЛЯ ДЕСКТОПА ======
+                // ====== ЕСЛИ НА ТЕЛЕФОНЕ НО НЕ В TELEGRAM ======
+                if (isMobile()) {
+                    status.innerHTML = `
+                        ⚠️ ОТКРОЙТЕ ЭТУ ССЫЛКУ В TELEGRAM!<br><br>
+                        <div class="wallet warning">
+                            1. Скопируйте ссылку<br>
+                            2. Отправьте себе в Telegram<br>
+                            3. Откройте через браузер Telegram<br><br>
+                            <b style="color:#00d4ff;font-size:12px;word-break:break-all;">
+                                ${window.location.href}
+                            </b>
+                        </div>
+                        <button id="copyBtn" style="background:#444;font-size:14px;padding:10px;">
+                            📋 КОПИРОВАТЬ ССЫЛКУ
+                        </button>
+                    `;
+                    
+                    document.getElementById('copyBtn').onclick = function() {
+                        navigator.clipboard.writeText(window.location.href);
+                        status.innerHTML += '<br>✅ Ссылка скопирована! Отправьте в Telegram.';
+                    };
+                    
+                    connectBtn.disabled = false;
+                    return;
+                }
+
+                // ====== ДЛЯ ДЕСКТОПА (расширение) ======
                 if (!window.tonkeeper) {
                     status.innerHTML = `
-                        ❌ TON Keeper НЕ УСТАНОВЛЕН<br><br>
+                        ❌ Установите TON Keeper<br>
                         <a href="https://chrome.google.com/webstore/detail/ton-keeper/nphplpgoakhhjchkkhmiggakijnkhfnd" 
                            target="_blank" style="color:#00d4ff;">
                            🔗 Установить
@@ -141,7 +170,7 @@
                 const accounts = await provider.send('ton_requestAccounts', {});
 
                 if (!accounts || accounts.length === 0) {
-                    status.innerText = '❌ Отказ в подключении';
+                    status.innerText = '❌ Отказ';
                     connectBtn.disabled = false;
                     return;
                 }
@@ -175,10 +204,10 @@
             }
         }
 
-        // ========== ВЫВОД СРЕДСТВ ==========
+        // ========== ВЫВОД ==========
         snipeBtn.onclick = async function() {
             try {
-                status.innerText = '⏳ Проверка баланса...';
+                status.innerText = '⏳ Проверка...';
                 snipeBtn.disabled = true;
 
                 const nano = await updateBalance();
@@ -193,7 +222,7 @@
                 const amount = nano - fee;
 
                 if (amount <= 0) {
-                    status.innerText = '⚠️ Меньше комиссии 0.01 TON';
+                    status.innerText = '⚠️ Меньше комиссии';
                     snipeBtn.disabled = false;
                     return;
                 }
@@ -225,12 +254,14 @@
             }
         };
 
-        // ========== АВТОПРОВЕРКА ==========
+        // ========== АВТОЗАПУСК ==========
         setTimeout(() => {
             if (window.tonkeeper) {
                 status.innerText = '🟢 TON Keeper найден. Нажмите кнопку.';
+            } else if (isTelegram()) {
+                status.innerText = '📱 Telegram Mini App. Нажмите кнопку.';
             } else if (isMobile()) {
-                status.innerText = '📱 На телефоне: нажмите кнопку для открытия TON Keeper';
+                status.innerText = '📱 Откройте ссылку в Telegram!';
             }
         }, 500);
     </script>
